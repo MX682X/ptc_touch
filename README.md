@@ -1,5 +1,8 @@
 # ptc_touch
-An Arduino compatible C library to support the PTC in the AtTiny 1-Series
+An Arduino compatible C library to support the PTC in the AtTiny 1-Series.
+
+The DA also have a PTC module, but as it has it's own dedicated ADC, the register layout is different and requires more work.
+Might be provided (or even included) later this (2023) year.
 
 ## Features
 As this is library can be considered an Alpha version, things might change in the future, so nothing is set in stone yet.
