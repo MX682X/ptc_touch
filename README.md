@@ -5,10 +5,16 @@ An Arduino compatible C library to support the PTC in the AtTiny 1-Series
 As this is library can be considered an Alpha version, things might change in the future, so nothing is set in stone yet.
 * Ready to use with minimal knowledge of the peripheral, but can still be well configured (options are similar to the "official" library)
 * Supports Mutual-cap and Self-cap (+Shield) sensing technology
-* Supports event-base triggering of conversions, as well as window-compared wake-up from Stand-by sleep
+* Supports event-based triggering of conversions, as well as window-compared wake-up from Stand-by sleep
 * Can be suspended to allow the polled use of ADC0 (ADC0 ISRs are used by the library)
 * Reduced memory footprint due to CPU specific optimizations compared to the "official" implementation
 
+
+## Installation
+
+If I did everything right, it should be possible to download the .zip and extract the contents to your Arduino library folder.
+
+For the non-Arduino people: all you need is inside the src folder.
 
 
 ## How to
