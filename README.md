@@ -23,11 +23,11 @@ Allocate memory for every single sensing node. The easiest way is to have an arr
 ##### Step 2: Node registration
 Initialize the node to be either a mutual-cap node with `uint8_t ptc_add_mutualcap_node(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh);` or to a self-cap node with `uint8_t ptc_add_selfcap_node(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh);`. When everything went without problems, the functions will return the enum `PTC_LIB_SUCCESS`. The `ptc_ch_bm_t` is a bitmap of pins that are connected to the PTC when the conversion starts. The pin-numbering corresponds to the X/Y numbering you can find in the datasheet. However, it is possible to use the macro `PIN_TO_PTC(PIN_Pxn)` that will return the corresponding bit-map for that pin. It is possible to bitwise-OR multiple pins to create a combined node. This applies to Y and X channel, as well as to self- and mutual-cap functions. While mutual-cap requires yCh and xCh not to be 0 (otherwise `PTC_LIB_BAD_ARGUMENT` will be returned), the self-cap requires only the yCh not to be 0. If the xCh is zero, the node will be a normal self-cap node, otherwise it will be of the self-cap with shield type. This becomes relevant when you change between the types, but that will be explained later. This function will also disable the pullup and digital input function of the specified pins. The order, in which this function is called determines the conversion order.
 Here are some provide some examples:
-1. `ptc_add_mutualcap_node(&nodes[0], PIN_TO_PTC(PIN_PA4), PIN_TO_PTC(PIN_PA7));`
+- `ptc_add_mutualcap_node(&nodes[0], PIN_TO_PTC(PIN_PA4), PIN_TO_PTC(PIN_PA7));`
   - PA4 will be sensing, PA7 will be driving
-2. `ptc_add_selfcap_node(&nodes[1], PIN_TO_PTC(PIN_PA4), 0);`
+- `ptc_add_selfcap_node(&nodes[1], PIN_TO_PTC(PIN_PA4), 0);`
   - No Driving pin, only sensing on PA4
-3. `ptc_add_selfcap_node(&nodes[2], (PIN_TO_PTC(PIN_PA4) | PIN_TO_PTC(PIN_PA5)), PIN_TO_PTC(PIN_PA7));`
+- `ptc_add_selfcap_node(&nodes[2], (PIN_TO_PTC(PIN_PA4) | PIN_TO_PTC(PIN_PA5)), PIN_TO_PTC(PIN_PA7));`
   - useful for wakeups, all "buttons" work as one, no matter on which you press, plus driven shield pin.
 
 
@@ -44,20 +44,20 @@ Even though this library can handle three different node types, only one type ca
 ##### Step 5: Callback
 In order to understand what happens, there is an extern callback function defined in the h-file. This means that you are required to have a function in your sketch-file that look like this: `void ptc_event_callback(const uint8_t eventType, cap_sensor_t* node) {`. The reason why I used an extern function and not a pointer to a callback is that this allows the compiler to ally inline optimizations, like optimizing away calls with eventTypes that don't need handling.
 There are following events:
-* `PTC_CB_EVENT_WAKE_TOUCH` (node: lowPower): This event happens in LP mode only when the Window-Comparator was triggered.
-* `PTC_CB_EVENT_WAKE_NO_TOUCH` (node: lowPower): This event happens in LP mode only when the Window-Comparator was not triggered.
-* `PTC_CB_EVENT_CONV_CMPL` (node: current node): This event happens whenever ptc_process finished handling said node
-* `PTC_CB_EVENT_CONV_MUTUAL_CMPL`,
-* `PTC_CB_EVENT_CONV_SELF_CMPL`,
-* `PTC_CB_EVENT_CONV_SHIELD_CMPL` (node: last converted node): 
-
-This events happen whenever ptc_process has handled all nodes of said type.
-* `PTC_CB_EVENT_CONV_CALIB (node: current node): 
-
-This event happens, whenever the calibration was successful.
-* `PTC_CB_EVENT_ERR_CALIB (node: current node): 
-
-This event happens, whenever the calibration failed on said node.
+- `PTC_CB_EVENT_WAKE_TOUCH` (node: lowPower):
+  - This event happens in LP mode only when the Window-Comparator was triggered.
+- `PTC_CB_EVENT_WAKE_NO_TOUCH` (node: lowPower):
+  - This event happens in LP mode only when the Window-Comparator was not triggered.
+- `PTC_CB_EVENT_CONV_CMPL` (node: current node):
+  - This event happens whenever ptc_process finished handling said node
+- `PTC_CB_EVENT_CONV_MUTUAL_CMPL`,
+- `PTC_CB_EVENT_CONV_SELF_CMPL`,
+- `PTC_CB_EVENT_CONV_SHIELD_CMPL` (node: last converted node):
+  - This events happen whenever ptc_process has handled all nodes of said type.
+- `PTC_CB_EVENT_CONV_CALIB` (node: current node):
+  - This event happens, whenever the calibration was successful.
+- `PTC_CB_EVENT_ERR_CALIB` (node: current node):
+  - This event happens, whenever the calibration failed on said node.
 
 You can use a simple switch-case to check for the events in the callback.
 
