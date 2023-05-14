@@ -24,11 +24,11 @@ Allocate memory for every single sensing node. The easiest way is to have an arr
 Initialize the node to be either a mutual-cap node with `uint8_t ptc_add_mutualcap_node(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh);` or to a self-cap node with `uint8_t ptc_add_selfcap_node(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh);`. When everything went without problems, the functions will return the enum `PTC_LIB_SUCCESS`. The `ptc_ch_bm_t` is a bitmap of pins that are connected to the PTC when the conversion starts. The pin-numbering corresponds to the X/Y numbering you can find in the datasheet. However, it is possible to use the macro `PIN_TO_PTC(PIN_Pxn)` that will return the corresponding bit-map for that pin. It is possible to bitwise-OR multiple pins to create a combined node. This applies to Y and X channel, as well as to self- and mutual-cap functions. While mutual-cap requires yCh and xCh not to be 0 (otherwise `PTC_LIB_BAD_ARGUMENT` will be returned), the self-cap requires only the yCh not to be 0. If the xCh is zero, the node will be a normal self-cap node, otherwise it will be of the self-cap with shield type. This becomes relevant when you change between the types, but that will be explained later. This function will also disable the pullup and digital input function of the specified pins. The order, in which this function is called determines the conversion order.
 Here are some provide some examples:
 * `ptc_add_mutualcap_node(&nodes[0], PIN_TO_PTC(PIN_PA4), PIN_TO_PTC(PIN_PA7));`
-** PA4 will be sensing, PA7 will be driving
+    PA4 will be sensing, PA7 will be driving
 * `ptc_add_selfcap_node(&nodes[1],   PIN_TO_PTC(PIN_PA4), 0);`
-** No Driving pin, only sensing on PA4
+    No Driving pin, only sensing on PA4
 * `ptc_add_selfcap_node(&nodes[2],  (PIN_TO_PTC(PIN_PA4) | PIN_TO_PTC(PIN_PA5) | PIN_TO_PTC(PIN_PA6)), PIN_TO_PTC(PIN_PA7));`
-**useful for wakeups, all "buttons" work as one, no matter on which you press
+    useful for wakeups, all "buttons" work as one, no matter on which you press
 
 
 ### Step 3 (semi-optional): Enable Nodes
