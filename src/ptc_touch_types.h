@@ -132,6 +132,7 @@ typedef enum ptc_lib_enum {
 typedef struct cap_sensor_type {
   void*     nextNode;       //
   uint8_t   type;           // 0x01 - selfcap, 0x02 - mutualcap
+  uint8_t   id;             // number for easier identification in the callback
  
   ptc_ch_bm_t hw_xCh_bm;
   ptc_ch_bm_t hw_yCh_bm;

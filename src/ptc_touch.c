@@ -12,7 +12,7 @@
 cap_sensor_t* ptc_get_last_node(void);
 
 
-cap_sensor_t* ptc_append_node(cap_sensor_t* pNewNode);
+uint8_t ptc_append_node(cap_sensor_t* pNewNode);
 
 
 // Initializes pins - disables digital input and Pull-ups based on bitmask
@@ -50,7 +50,7 @@ volatile cap_sensor_t *currConvNode = NULL;
 uint8_t currConvType = 0;   // does not "remember" if type was low-power
 uint8_t nextConvType = 0;
 
-uint16_t acqPeriod = 100;    // Period in ms until a new acquision is started
+uint16_t acqPeriod = 20;    // Period in ms until a new acquision is started
 uint16_t lastAcqTime = 0;   // millis value of last Acqusition (16-bit)
 
 uint8_t freq_select = 0;  /* FREQ_SEL_0 to FREQ_SEL_15, FREQ_SEL_SPREAD -> CTRLD */
@@ -259,7 +259,7 @@ uint8_t ptc_add_selfcap_node(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xC
   if (yCh == 0)
     return PTC_LIB_BAD_ARGUMENT;  // self requires at least one pin on y-Channel
 
-  ptc_append_node(node);
+  uint8_t newId = ptc_append_node(node);
 
   uint8_t type;
   if (xCh > 0) {
@@ -269,6 +269,7 @@ uint8_t ptc_add_selfcap_node(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xC
   }
 
   node->type = type;
+  node->id = newId;
   node->stateMachine = PTC_SM_NOINIT_CAL;
   node->hw_xCh_bm = xCh;
   node->hw_yCh_bm = yCh;
@@ -295,9 +296,10 @@ uint8_t ptc_add_mutualcap_node(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t 
   if (yCh == 0 || xCh == 0)
     return PTC_LIB_BAD_ARGUMENT;  // mutual requires at least one pin on y-Channel and x-Channel
 
-  ptc_append_node(node);
+  uint8_t newId = ptc_append_node(node);
 
   node->type = NODE_MUTUAL_bm;
+  node->id = newId;
   node->stateMachine = PTC_SM_NOINIT_CAL;
   node->hw_xCh_bm = xCh;
   node->hw_yCh_bm = yCh;
@@ -557,6 +559,7 @@ void ptc_process_node_sm (cap_sensor_t* node) {
   } else if (nodeSM & PTC_SM_TOUCH_IN_FLT) {
     if (lastChange >= ptc_sm_settings.touched_detect_nom) {
       nodeSM = PTC_SM_TOUCH_DETECT;
+      ptc_event_callback(PTC_CB_EVENT_TOUCH_DETECT, node);
     } else if (nodeDelta < node->touch_in_th) {
       nodeSM = PTC_SM_NO_TOUCH;
     }
@@ -565,6 +568,7 @@ void ptc_process_node_sm (cap_sensor_t* node) {
   } else if (nodeSM & PTC_SM_TOUCH_OUT_FLT) {
     if (lastChange >= ptc_sm_settings.untouched_detect_nom) {
       nodeSM = PTC_SM_NO_TOUCH;
+      ptc_event_callback(PTC_CB_EVENT_TOUCH_RELEASE, node);
     } else if (nodeDelta > node->touch_in_th) {
       nodeSM = PTC_SM_TOUCH_DETECT;
     }
@@ -717,9 +721,9 @@ uint8_t ptc_process_calibrate (cap_sensor_t* node) {
   } /* (rawData > 0x0001) */
 
 
-  cc_rough |= cc_add_rough;
   cc_fine <<= 4;
   cc_rough <<= 4;
+  cc_rough |= cc_add_rough;
   cc_rough |= cc_coarse;
   cc_fine  |= cc_accurate;
   node->hw_compCaps = (uint16_t)((cc_rough << 8) | cc_fine);
@@ -901,14 +905,14 @@ cap_sensor_t* ptc_get_last_node (void) {
 
 // puts the node to the back of the single-linked list.
 // returns NULL if list was empty, otherwise the previous last node
-cap_sensor_t* ptc_append_node(cap_sensor_t* pNewNode) {
+uint8_t ptc_append_node(cap_sensor_t* pNewNode) {
   cap_sensor_t* lastNode = ptc_get_last_node();
   if (lastNode == NULL) {
     firstNode = pNewNode;
-    return NULL;
+    return 0;
   } else {
     lastNode->nextNode = pNewNode;
-    return lastNode;
+    return (lastNode->id + 1);
   }
 }
 
