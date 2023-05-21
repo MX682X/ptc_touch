@@ -17,11 +17,12 @@ void setup() {
   // this puts the node on the list and initializes to default values
   ptc_add_selfcap_node(&nodes[0], PIN_TO_PTC(PIN_PA4), 0);    
   ptc_add_selfcap_node(&nodes[1], PIN_TO_PTC(PIN_PA5), 0);
-  ptc_add_selfcap_node(&nodes[1], PIN_TO_PTC(PIN_PA6), 0);
+  ptc_add_selfcap_node(&nodes[2], PIN_TO_PTC(PIN_PA6), 0);
 
   // only enabled nodes will be have a conversion
   ptc_enable_node(&nodes[0]);
   ptc_enable_node(&nodes[1]);
+  ptc_enable_node(&nodes[2]);
 
   // Make sure Serial works
   MySerial.println("Hello World!");

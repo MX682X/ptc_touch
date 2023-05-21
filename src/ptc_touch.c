@@ -224,9 +224,11 @@ void ptc_add_node_common(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh);
 uint8_t ptc_add_selfcap_node_asserted(cap_sensor_t* node, const ptc_ch_bm_t yCh, const ptc_ch_bm_t xCh) {
   PTC_CHECK_POINTER(node, PTC_LIB_BAD_POINTER); // check not in h file as gcc doesn't know about the memory address
   
-  ptc_add_node_common(node, yCh, xCh);
+  if (ptc_append_node(node) != PTC_LIB_SUCCESS)
+    return PTC_LIB_BAD_POINTER;
   
-  node->id = ptc_append_node(node);
+  ptc_add_node_common(node, yCh, xCh);
+
   if (xCh > 0)  node->type = NODE_SELFCAP_SHIELD_bm;
   else          node->type = NODE_SELFCAP_bm;
 
@@ -243,9 +245,11 @@ uint8_t ptc_add_selfcap_node_asserted(cap_sensor_t* node, const ptc_ch_bm_t yCh,
 uint8_t ptc_add_mutualcap_node_asserted(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh) {
   PTC_CHECK_POINTER(node, PTC_LIB_BAD_POINTER); // check not in h file as gcc doesn't know about the memory address
   
+  if (ptc_append_node(node) != PTC_LIB_SUCCESS)
+    return PTC_LIB_BAD_POINTER;
+  
   ptc_add_node_common(node, yCh, xCh);
   
-  node->id = ptc_append_node(node);
   node->type = NODE_MUTUAL_bm;
 
   node->touch_in_th = 10;
@@ -863,11 +867,14 @@ uint8_t ptc_append_node(cap_sensor_t* pNewNode) {
   cap_sensor_t* lastNode = ptc_get_last_node();
   if (lastNode == NULL) {
     firstNode = pNewNode;
-    return 0;
-  } else {
+    pNewNode->id = 0;
+  } else if (lastNode != pNewNode) {  // Make sure we don't create an endless loop on accident
     lastNode->nextNode = pNewNode;
-    return (lastNode->id + 1);
+    pNewNode->id = lastNode->id + 1;
+  } else {
+    return PTC_LIB_ERROR;
   }
+  return PTC_LIB_SUCCESS;
 }
 
 
