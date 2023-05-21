@@ -14,10 +14,6 @@ cap_sensor_t* ptc_get_last_node(void);
 
 uint8_t ptc_append_node(cap_sensor_t* pNewNode);
 
-
-// Initializes pins - disables digital input and Pull-ups based on bitmask
-void ptc_init_pins (ptc_ch_bm_t xCh, ptc_ch_bm_t yCh);
-
 // Prepares the ADC/PTC registers for the next conversion batch, starts conversion with firstNode
 void ptc_init_conversion(uint8_t nodeType);
 
@@ -98,30 +94,8 @@ const uint8_t ptc_a_gain_mc_lut[] = {
   0x08, 0x38, 0x14, 0x01
 };
 
-// lookup-table to quickly disable input and pull-up
-const uint8_t* ptc_ch_to_pin [] = {
-   (uint8_t*)&PORTA.PIN4CTRL
-  ,(uint8_t*)&PORTA.PIN5CTRL
-  ,(uint8_t*)&PORTA.PIN6CTRL
-  ,(uint8_t*)&PORTA.PIN7CTRL
-  ,(uint8_t*)&PORTB.PIN1CTRL    /* X4 / Y4 */
-  ,(uint8_t*)&PORTB.PIN0CTRL
-#if defined(PIN_PC0)  /* 20 pins */
-  ,(uint8_t*)&PORTC.PIN0CTRL
-  ,(uint8_t*)&PORTC.PIN1CTRL
-  ,(uint8_t*)&PORTC.PIN2CTRL    /* X8 / Y8 */
-  ,(uint8_t*)&PORTC.PIN3CTRL
-#if defined(PIN_PC4)  /* 26 pins */
-  ,(uint8_t*)&PORTC.PIN4CTRL
-  ,(uint8_t*)&PORTC.PIN5CTRL
-#else
-  ,NULL
-  ,NULL
-#endif  /* defined(PIN_PC4) */
-  ,(uint8_t*)&PORTB.PIN5CTRL    /* X12 / Y12 */
-  ,(uint8_t*)&PORTB.PIN6CTRL
-#endif /* defined(PIN_PC0) */
-};
+
+
 
 
 //#if (NUM_TOTAL_PINS > 32)
@@ -150,8 +124,7 @@ uint8_t ptc_node_set_thresholds (cap_sensor_t* node, int16_t th_in, int16_t th_o
 
 // Change Resistor Setting. Note: Only has an effect on mutual sensors
 uint8_t ptc_node_set_resistor(cap_sensor_t* node, uint8_t res) {
-  if (NULL == node) 
-    return PTC_LIB_BAD_POINTER;
+  PTC_CHECK_FOR_BAD_POINTER(node);
     
   if (res > RSEL_MAX)
     return PTC_LIB_BAD_ARGUMENT;
@@ -170,8 +143,7 @@ uint8_t ptc_node_set_resistor(cap_sensor_t* node, uint8_t res) {
 
 // Change preschaler. Recomended ADC frequency: < 1.5MHz, but max 3 factors below
 uint8_t ptc_node_set_prescaler(cap_sensor_t* node, uint8_t presc) {
-  if (NULL == node) 
-    return PTC_LIB_BAD_POINTER;
+  PTC_CHECK_FOR_BAD_POINTER(node);
 
   if ((presc > (PTC_PRESC_DEFAULT + 2)) || (presc < PTC_PRESC_DEFAULT))
     return PTC_LIB_BAD_ARGUMENT;
@@ -184,8 +156,7 @@ uint8_t ptc_node_set_prescaler(cap_sensor_t* node, uint8_t presc) {
 
 
 uint8_t ptc_node_set_gain(cap_sensor_t* node, uint8_t aGain, uint8_t dGain) {
-  if (NULL == node) 
-    return PTC_LIB_BAD_POINTER;
+  PTC_CHECK_FOR_BAD_POINTER(node);
 
   node->hw_a_d_gain = NODE_GAIN(aGain, dGain);
   return PTC_LIB_SUCCESS;
@@ -246,91 +217,91 @@ void ptc_init_ADC0(void) {
 }
 
 
-
-
-
+// a helper function to reduce copy-pasting between self and mutual initialisations
+void ptc_add_node_common(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh);
 
 // if xCh > 0, with shield, otherwise usual selfcap
-uint8_t ptc_add_selfcap_node(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh) {
-  // check if the supplied address is in RAM, be especially paranoid here as this is where
-  // the user gives the library the pointer
-  PTC_CHECK_POINTER(node, PTC_LIB_BAD_POINTER);
+uint8_t ptc_add_selfcap_node_asserted(cap_sensor_t* node, const ptc_ch_bm_t yCh, const ptc_ch_bm_t xCh) {
+  PTC_CHECK_POINTER(node, PTC_LIB_BAD_POINTER); // check not in h file as gcc doesn't know about the memory address
+  
+  ptc_add_node_common(node, yCh, xCh);
+  
+  node->id = ptc_append_node(node);
+  if (xCh > 0)  node->type = NODE_SELFCAP_SHIELD_bm;
+  else          node->type = NODE_SELFCAP_bm;
 
-  if (yCh == 0)
-    return PTC_LIB_BAD_ARGUMENT;  // self requires at least one pin on y-Channel
-
-  uint8_t newId = ptc_append_node(node);
-
-  uint8_t type;
-  if (xCh > 0) {
-    type = NODE_SELFCAP_SHIELD_bm;
-  } else {
-    type = NODE_SELFCAP_bm;
-  }
-
-  node->type = type;
-  node->id = newId;
-  node->stateMachine = PTC_SM_NOINIT_CAL;
-  node->hw_xCh_bm = xCh;
-  node->hw_yCh_bm = yCh;
-  node->hw_a_d_gain = NODE_GAIN(ADC_SAMPNUM_ACC1_gc, ADC_SAMPNUM_ACC16_gc);
 
   node->touch_in_th = 20;
   node->touch_out_th = 10;
   node->hw_compCaps = 0x0567;  /* value from qTouch */
   node->hw_rsel_presc = NODE_RSEL_PRSC(RSEL_VAL_0, PTC_PRESC_DEFAULT);
-  
-  ptc_init_pins(xCh, yCh);
-  PTC.PIN_OVR |= (xCh | yCh);
 
   return PTC_LIB_SUCCESS;
 }
 
 
-
-uint8_t ptc_add_mutualcap_node(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh) {
-  // check if the supplied address is in RAM, be especially paranoid here as this is where
-  // the user gives the library the pointer
-  PTC_CHECK_POINTER(node, PTC_LIB_BAD_POINTER); 
-
-  if (yCh == 0 || xCh == 0)
-    return PTC_LIB_BAD_ARGUMENT;  // mutual requires at least one pin on y-Channel and x-Channel
-
-  uint8_t newId = ptc_append_node(node);
-
+uint8_t ptc_add_mutualcap_node_asserted(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh) {
+  PTC_CHECK_POINTER(node, PTC_LIB_BAD_POINTER); // check not in h file as gcc doesn't know about the memory address
+  
+  ptc_add_node_common(node, yCh, xCh);
+  
+  node->id = ptc_append_node(node);
   node->type = NODE_MUTUAL_bm;
-  node->id = newId;
-  node->stateMachine = PTC_SM_NOINIT_CAL;
-  node->hw_xCh_bm = xCh;
-  node->hw_yCh_bm = yCh;
-  node->hw_a_d_gain = NODE_GAIN(ADC_SAMPNUM_ACC1_gc, ADC_SAMPNUM_ACC16_gc);
 
   node->touch_in_th = 10;
   node->touch_out_th = 5;
   node->hw_compCaps = 0x0234;  /* value from qTouch */
-  node->hw_rsel_presc = NODE_RSEL_PRSC(RSEL_VAL_100, PTC_PRESC_DEFAULT);
-
-  ptc_init_pins(xCh, yCh);
-  PTC.PIN_OVR |= (xCh | yCh);
-
+  node->hw_rsel_presc = NODE_RSEL_PRSC(RSEL_VAL_100, PTC_PRESC_DEFAULT); 
+  
   return PTC_LIB_SUCCESS;
+}
+
+void ptc_add_node_common(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh) {
+  
+  node->stateMachine = PTC_SM_NOINIT_CAL;
+  node->hw_xCh_bm = xCh;
+  node->hw_yCh_bm = yCh;
+  node->hw_a_d_gain = NODE_GAIN(ADC_SAMPNUM_ACC1_gc, ADC_SAMPNUM_ACC16_gc);
+  
+  uint8_t* src = (uint8_t*)&PTC.PIN_OVR;  // Get "addresses" of relevant elements
+  uint8_t* orY = (uint8_t*)&yCh;          // This allows to split the uint64_t to an access of one byte at a time
+  uint8_t* orX = (uint8_t*)&xCh;          // on AtTinies, the compiler unrolls the loop to two iterations
+  uint8_t bit_pos  = 0;   // counts from 0 to "highest PTC pin number"
+  for (uint8_t i = 0; i < sizeof(ptc_ch_bm_t); i++) {
+    // this equals PTC.PIN_OVR |= (xCh | yCh);, but more friendly for CPU-registers on DAs with uint64_t
+    uint8_t temp_bm = *(orY++) | *(orX++);
+    *(src) |= temp_bm;
+    src++;
+
+    for (uint8_t j = 0; j < 8; j++) {
+      if (temp_bm & 0x01) {
+        if (bit_pos < sizeof(ptc_ch_to_pin)) {   // avoid accesses outside of the array, which can be smaller then the bit-map
+          uint8_t offset = ptc_ch_to_pin[bit_pos];
+          if (offset != 0) {
+            uint16_t basePointer = (uint16_t)&PORTA;
+            uint8_t* portSettings = (uint8_t*)(basePointer + offset);
+            (*portSettings) = PORT_ISC_INPUT_DISABLE_gc;
+          }
+        }
+      }
+      bit_pos++;
+      temp_bm >>= 1;
+    }
+  }
 }
 
 
 
-
 uint8_t ptc_enable_node(cap_sensor_t* node) {
-  if (NULL == node)
-    return PTC_LIB_BAD_POINTER;
-
+  PTC_CHECK_FOR_BAD_POINTER(node);
+  
   node->state.enabled = 1;
   return PTC_LIB_SUCCESS;
 }
 
 // Will finish conversion, but not start a new one
 uint8_t ptc_disable_node(cap_sensor_t* node) {
-  if (NULL == node)
-    return PTC_LIB_BAD_POINTER;
+  PTC_CHECK_FOR_BAD_POINTER(node);
 
   node->state.enabled = 0;
   return PTC_LIB_SUCCESS;
@@ -362,8 +333,7 @@ void ptc_set_next_conversion_type(uint8_t type) {
 // ev_ch: bitmask of required channels to be used for ADC0/PTC, e.g. channel 2 and 5 -> 0x24
 // this would allow to periodically start ADC0/PIT by a timer without sleep
 uint8_t ptc_lp_init(cap_sensor_t* node) {
-  if (NULL == node)
-    return PTC_LIB_BAD_POINTER;
+  PTC_CHECK_FOR_BAD_POINTER(node);
 
   if (NULL != lowPowerNode)
     return PTC_LIB_WRONG_STATE;
@@ -869,22 +839,6 @@ void ptc_eoc(void) {
   }
 }
 
-
-void ptc_init_pins (ptc_ch_bm_t xCh, ptc_ch_bm_t yCh) {
-  ptc_ch_bm_t pinMaskXY = xCh | yCh;
-  uint8_t bp = 0;
-  
-  while (pinMaskXY != 0) {
-    if (pinMaskXY & 0x01) {
-      uint8_t *portSettings = (uint8_t*)ptc_ch_to_pin[bp];
-      if (portSettings != NULL) {
-        *portSettings = PORT_ISC_INTDISABLE_gc;
-      }
-    }
-    bp++;
-    pinMaskXY >>= 1;
-  }
-}
 
 
 // returns the last node in the list, or NULL if list empty.

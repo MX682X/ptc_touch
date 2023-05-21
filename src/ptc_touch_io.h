@@ -41,7 +41,7 @@ typedef struct PTC_struct
   register8_t reserved_4[1];  /* +0x1D */
   register8_t SHIELD;         /* +0x1E if enabled, written 0x86, otherwise 0x00 */
   register8_t reserved_5[1];  /* +0x1F */
-  _WORDREGISTER(RES_TRUE);    /* +0x20 Some Result, written by PTC. Seems to be RES, but left-shifted*/
+  _WORDREGISTER(RES_PTC);     /* +0x20 Some Result, written by PTC. Seems to be RES, but left-shifted, or result from PTC accumulated by ADC */
   _WORDREGISTER(PIN_OVR);     /* +0x22 all X and Y pins OR'd together at init. Pin Function Overwrite Probably*/
   register8_t reserved_7[2];  /* +0x24 */
   _WORDREGISTER(XBM);         /* +0x26 amount of writable bits depends on chip-die family */
@@ -70,7 +70,7 @@ typedef struct PTC_struct
 
 
 #define PIN_TO_PTC(__pin__) (((__pin__) < NUM_TOTAL_PINS ) ? digital_pin_to_ptc_bm[__pin__] : 0x00)
-#if defined(ARDUINO_attinyxy4)
+#if (defined(__AVR_ATtiny814__) || defined(__AVR_ATtiny1614__) || defined(__AVR_ATtiny3214__))
 const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
   0x01 << 0,  //PA4
   0x01 << 1,  //PA5
@@ -85,7 +85,7 @@ const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
   0x00,       //PA3
   0x00        //PA0
 };
-#elif defined(ARDUINO_attinyxy6)
+#elif  (defined(__AVR_ATtiny816__)  || defined(__AVR_ATtiny1616__) || defined(__AVR_ATtiny3216__))
 const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
   0x01 << 0,  // 0  PA4
   0x01 << 1,  // 1  PA5
@@ -107,7 +107,7 @@ const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
   0x00,       // 16 PA3
   0x00        // 17 PA0
 };
-#elif defined(ARDUINO_attinyxy7)
+#elif  (defined(__AVR_ATtiny817__) || defined(__AVR_ATtiny1617__) || defined(__AVR_ATtiny3217__))
 const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
   0x01 << 0,  // 0  PA4
   0x01 << 1,  // 1  PA5
@@ -133,9 +133,172 @@ const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
   0x00,       // 20 PA3
   0x00        // 21 PA0
 };
-#else
-#error "PTC not supported by 8-Pin parts"
+#elif  (defined(__AVR_AVR32DA28__) || defined(__AVR_AVR64DA28__) || defined(__AVR_AVR128DA28__))
+const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
+  0x01 << 0,  // 0  PA4
+  0x01 << 1,  // 1  PA5
+  0x01 << 2,  // 2  PA6
+  0x01 << 3,  // 3  PA7
+  0x00,       // 4  PB7
+  0x00,       // 5  PB6
+  0x01 << 12, // 6  PB5
+  0x01 << 13, // 7  PB4
+  0x00,       // 8  PB3
+  0x00,       // 9  PB2
+  0x01 << 4,  // 10 PB1
+  // Right side, bottom to top
+  0x01 << 5,  // 11 PB0
+  0x01 << 6,  // 12 PC0
+  0x01 << 7,  // 13 PC1
+  0x01 << 8,  // 14 PC2
+  0x01 << 9,  // 15 PC3
+  0x01 << 10, // 16 PC4
+  0x01 << 11, // 17 PC5
+  0x00,       // 18 PA1
+  0x00,       // 19 PA2
+  0x00,       // 20 PA3
+  0x00        // 21 PA0
+};
+#elif  (defined(__AVR_AVR32DA32__) || defined(__AVR_AVR64DA32__) || defined(__AVR_AVR128DA32__))
+const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
+  0x01 << 0,  // 0  PA4
+  0x01 << 1,  // 1  PA5
+  0x01 << 2,  // 2  PA6
+  0x01 << 3,  // 3  PA7
+  0x00,       // 4  PB7
+  0x00,       // 5  PB6
+  0x01 << 12, // 6  PB5
+  0x01 << 13, // 7  PB4
+  0x00,       // 8  PB3
+  0x00,       // 9  PB2
+  0x01 << 4,  // 10 PB1
+  // Right side, bottom to top
+  0x01 << 5,  // 11 PB0
+  0x01 << 6,  // 12 PC0
+  0x01 << 7,  // 13 PC1
+  0x01 << 8,  // 14 PC2
+  0x01 << 9,  // 15 PC3
+  0x01 << 10, // 16 PC4
+  0x01 << 11, // 17 PC5
+  0x00,       // 18 PA1
+  0x00,       // 19 PA2
+  0x00,       // 20 PA3
+  0x00        // 21 PA0
+};
+#elif  (defined(__AVR_AVR32DA48__) || defined(__AVR_AVR64DA48__) || defined(__AVR_AVR128DA48__))
+const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
+  0x01 << 0,  // 0  PA4
+  0x01 << 1,  // 1  PA5
+  0x01 << 2,  // 2  PA6
+  0x01 << 3,  // 3  PA7
+  0x00,       // 4  PB7
+  0x00,       // 5  PB6
+  0x01 << 12, // 6  PB5
+  0x01 << 13, // 7  PB4
+  0x00,       // 8  PB3
+  0x00,       // 9  PB2
+  0x01 << 4,  // 10 PB1
+  // Right side, bottom to top
+  0x01 << 5,  // 11 PB0
+  0x01 << 6,  // 12 PC0
+  0x01 << 7,  // 13 PC1
+  0x01 << 8,  // 14 PC2
+  0x01 << 9,  // 15 PC3
+  0x01 << 10, // 16 PC4
+  0x01 << 11, // 17 PC5
+  0x00,       // 18 PA1
+  0x00,       // 19 PA2
+  0x00,       // 20 PA3
+  0x00        // 21 PA0
+};
+#elif  (defined(__AVR_AVR32DA64__) || defined(__AVR_AVR64DA64__) || defined(__AVR_AVR128DA64__))
+const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
+  0x01 << 0,  // 0  PA4
+  0x01 << 1,  // 1  PA5
+  0x01 << 2,  // 2  PA6
+  0x01 << 3,  // 3  PA7
+  0x00,       // 4  PB7
+  0x00,       // 5  PB6
+  0x01 << 12, // 6  PB5
+  0x01 << 13, // 7  PB4
+  0x00,       // 8  PB3
+  0x00,       // 9  PB2
+  0x01 << 4,  // 10 PB1
+  // Right side, bottom to top
+  0x01 << 5,  // 11 PB0
+  0x01 << 6,  // 12 PC0
+  0x01 << 7,  // 13 PC1
+  0x01 << 8,  // 14 PC2
+  0x01 << 9,  // 15 PC3
+  0x01 << 10, // 16 PC4
+  0x01 << 11, // 17 PC5
+  0x00,       // 18 PA1
+  0x00,       // 19 PA2
+  0x00,       // 20 PA3
+  0x00        // 21 PA0
+};
+#elif
+#error "PTC not supported by this part"
 #endif
+
+
+#if defined (PORTA)
+  #define PORTA_ISC(_pin_)  ((0x20 * 0) + 0x10 + _pin_)
+#else
+  #define PORTA_ISC(_pin_)  0x00
+#endif
+#if defined (PORTB)
+  #define PORTB_ISC(_pin_)  ((0x20 * 1) + 0x10 + _pin_)
+#else
+  #define PORTB_ISC(_pin_)  0x00
+#endif
+#if defined (PORTC)
+  #define PORTC_ISC(_pin_)  ((0x20 * 2) + 0x10 + _pin_)
+#else
+  #define PORTC_ISC(_pin_)  0x00
+#endif
+#if defined (PORTD)
+  #define PORTD_ISC(_pin_)  ((0x20 * 3) + 0x10 + _pin_)
+#else
+  #define PORTD_ISC(_pin_)  0x00
+#endif
+#if defined (PORTE)
+  #define PORTE_ISC(_pin_)  ((0x20 * 4) + 0x10 + _pin_)
+#else
+  #define PORTE_ISC(_pin_)  0x00
+#endif
+#if defined (PORTF)
+  #define PORTF_ISC(_pin_)  ((0x20 * 5) + 0x10 + _pin_)
+#else
+  #define PORTF_ISC(_pin_)  0x00
+#endif
+#if defined (PORTG)
+  #define PORTG_ISC(_pin_)  ((0x20 * 6) + 0x10 + _pin_)
+#else
+  #define PORTG_ISC(_pin_)  0x00
+#endif
+
+
+
+// lookup-table to quickly disable input and pull-up
+const uint8_t ptc_ch_to_pin [] = {
+   PORTA_ISC(4)
+  ,PORTA_ISC(5)
+  ,PORTA_ISC(6)
+  ,PORTA_ISC(7)
+  ,PORTB_ISC(1)    /* X4 / Y4 */
+  ,PORTA_ISC(0)
+#if defined(PORTC)  /* 20+ pins */
+  ,PORTC_ISC(0)
+  ,PORTC_ISC(1)
+  ,PORTC_ISC(2)    /* X8 / Y8 */
+  ,PORTC_ISC(3)
+  ,PORTC_ISC(4)   // 20 pin parts: writing to this location will have no effect, but likely pre-filtered by PIN_TO_PTC anyway
+  ,PORTC_ISC(5)   // 20 pin parts: writing to this location will have no effect, but likely pre-filtered by PIN_TO_PTC anyway
+  ,PORTB_ISC(5)    /* X12 / Y12 */
+  ,PORTB_ISC(6)
+#endif /* defined(PORTC) */
+};
 
 
 #ifdef __cplusplus

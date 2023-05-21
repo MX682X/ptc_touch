@@ -2,7 +2,7 @@
 
 #define MySerial Serial
 
-cap_sensor_t nodes[2];
+cap_sensor_t nodes[4];
 
 void setup() {
   MySerial.begin(115200);
@@ -18,20 +18,17 @@ void setup() {
 
 void loop() {
   ptc_process(millis());
-
 }
 
 void ptc_event_callback(const uint8_t eventType, cap_sensor_t* node) {
   if (PTC_CB_EVENT_TOUCH_DETECT == eventType) {
     MySerial.print("node touched:");
-    MySerial.println(node->id);
+    MySerial.println(ptc_get_node_id(node));
   } else if (PTC_CB_EVENT_TOUCH_RELEASE == eventType) {
     MySerial.print("node released:");
-    MySerial.println(node->id);
+    MySerial.println(ptc_get_node_id(node));
   } else if (PTC_CB_EVENT_ERR_CALIB  == eventType) {
-    MySerial.print("Calibration failed on node ");
-    MySerial.print(ptc_get_node_xCh_bm(node));
-    MySerial.print('/');
-    MySerial.println(ptc_get_node_yCh_bm(node));
+    MySerial.print("Calibration failed on node: ");
+    MySerial.println(ptc_get_node_id(node));
   }
 }

@@ -34,6 +34,7 @@
     #define _fastPtr_d(_x_, _y_) _x_ = _y_;
   #endif
 #endif
+
 #include "ptc_touch_types.h"
 #include "ptc_touch_io.h"
 
@@ -89,7 +90,11 @@ extern "C" {
     return __ret__;                               \
   }
 
-
+#define PTC_CHECK_FOR_BAD_POINTER(__p__)  \
+  if (NULL == __p__) {                    \
+    badArg("Null pointer detected");      \
+    return PTC_LIB_BAD_POINTER;           \
+  }
 
 
 
@@ -125,8 +130,32 @@ uint8_t ptc_node_set_prescaler(cap_sensor_t* node, uint8_t presc);
 
 uint8_t ptc_node_set_gain(cap_sensor_t* node, uint8_t aGain, uint8_t dGain);
 
-uint8_t ptc_add_selfcap_node(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh);
-uint8_t ptc_add_mutualcap_node(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh);
+// this two functions assume that yCh and xCh have validated values. Don't call these directly
+uint8_t ptc_add_selfcap_node_asserted(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh);
+uint8_t ptc_add_mutualcap_node_asserted(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh);
+
+inline uint8_t ptc_add_selfcap_node(cap_sensor_t* node, const ptc_ch_bm_t yCh, const ptc_ch_bm_t xCh) {
+  if(__builtin_constant_p(yCh)) {
+    if (yCh == 0)   badArg("yCh bitmap mustn't be 0 (Pin_Pxn is not a PTC pin)");
+    if (yCh & xCh)  badArg("pin bitmap overlap detected");
+  } else if ((yCh == 0) || ((yCh & xCh) != 0)) {
+    return PTC_LIB_BAD_ARGUMENT;      // We need at least one pin to connect to
+  }
+  return ptc_add_selfcap_node_asserted(node, yCh, xCh);
+};
+
+inline uint8_t ptc_add_mutualcap_node(cap_sensor_t* node, const ptc_ch_bm_t yCh, const ptc_ch_bm_t xCh) {
+  if(__builtin_constant_p(yCh) && __builtin_constant_p(xCh)) {
+    if (yCh == 0)   badArg("yCh bitmap mustn't be 0 (Pin_Pxn is not a PTC pin)");
+    if (xCh == 0)   badArg("xCh bitmap mustn't be 0 (Pin_Pxn is not a PTC pin)");
+    if (yCh & xCh)  badArg("pin overlap detected");
+  } else if ((yCh == 0 || xCh == 0) || ((yCh & xCh) != 0)) {
+    return PTC_LIB_BAD_ARGUMENT;      // mutual requires at least one pin on y-Channel and x-Channel
+  }
+  return ptc_add_mutualcap_node_asserted(node, yCh, xCh);
+};
+
+
 
 uint8_t ptc_suspend(void);
 void ptc_resume(void);
@@ -155,7 +184,7 @@ inline uint16_t ptc_get_node_sensor_value(cap_sensor_t* node) {
 
 // returns true, if node is a valid pointer and node is touched, otherwise false. 
 // No other return value so there can be easy checks - not null or null
-inline bool ptc_get_node_touched(cap_sensor_t* node) {
+inline uint8_t ptc_get_node_touched(cap_sensor_t* node) {
   if (node == NULL) return 0x00;
 
   if (node->stateMachine & (PTC_SM_TOUCH_DETECT | PTC_SM_TOUCH_OUT_FLT)) 
@@ -165,7 +194,7 @@ inline bool ptc_get_node_touched(cap_sensor_t* node) {
 
 
 inline uint8_t ptc_get_node_sm(cap_sensor_t* node) {
-  if (node == NULL) return PTC_LIB_BAD_POINTER;
+  PTC_CHECK_FOR_BAD_POINTER(node);
   return node->stateMachine;
 }
 
@@ -184,9 +213,17 @@ inline uint8_t ptc_get_node_state(cap_sensor_t* node) {
   return (node->stateMachine);
 }
 
-inline uint8_t ptc_node_request_recal(cap_sensor_t* node) {
+inline ptc_id_t ptc_get_node_id(cap_sensor_t* node) {
   if (node == NULL)
-    return PTC_LIB_BAD_POINTER;
+    return 0xFF;
+  
+  return (node->id);
+}
+
+
+inline uint8_t ptc_node_request_recal(cap_sensor_t* node) {
+  PTC_CHECK_FOR_BAD_POINTER(node);
+
   node->stateMachine = PTC_SM_NOINIT_CAL;
   node->lastStateChange = 0;
   return PTC_LIB_SUCCESS;
