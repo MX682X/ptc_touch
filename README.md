@@ -99,6 +99,8 @@ In order to mesure the capacitance of the node, the PTC performs following Steps
 
 The measured voltage depends on what happens around the electrode. In an idle state, 50% of the charge of the node (and thus voltage) is transfered to Cc, however when something conductive is moved towards the electrode, the capacitance will increase slightly. With a higher capacitance, the node will have a higher charge, meaning less then 50% of the charge can be trnsfered to Cc until they reach an equal Voltage, which means the overall voltage will be higher, which can be measured by the ADC.
 
+If you have trouble understanding: Imagine two equally sized volumes connected trough a valve. You fill the first up with water, open the valve and look on the second, how high the water has risen. After marking the "idle" level, when you put a finger in the water and see the water rise. This new level is the increase in voltage due to an inteference.
+
 ### Calibration / Compensation
 
 Based on the documentation found online, the PTC has an internal, tunable capacitor connected after the series resistance to ground that is used to compensate the parasitic capacitance of the electrodes. Every node starts with a default compensation value. As soon as the node is enabled, the library attempts to find a compensation setting that will result in an ADC value of about 512 counts (1/2 of ADC resolution). Based on oscilloscope readings, it can also be said that the PTC tries to have a charge of 50% VCC on the electrode when being acquired. This is the also the reason, why the digital input function of the pins is disabled.
