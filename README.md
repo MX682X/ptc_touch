@@ -86,9 +86,22 @@ The reason, why a bit-map is used, is to provide a way to connect the electrodes
 
 The ptc_ch_bm_t is a typedef that depends on the pincount of the device and ranges from uint8_t to uint16_t (and up to uint64_t on the DAs). Up to 8 PTC-Pins, uint8_t, up to 16 PTC pins, uint16_t, and so on.
 
+### PTC Operation
+Most of the following is a hyptohesis based on the publically available documentation and observation.
+The PTC is using a charge transfer between a variable and a fixed capacitance to measure a difference between those two. The variable capacitance in this case is the sensor electrode and the fixed one is the internal Cc. The neat thing about having a dedicated hardware for this, is that Cc is not really fixed, compared to the Sample-and-Hold capacitor of the normal ADC, it can be calibrated to be about the same as the electrode we want to measure (See below).
+
+In order to mesure the capacitance of the node, the PTC performs following Steps:
+  1. Charge the electrode to Vdd
+  2. Wait for Chrage to complete
+  3. Disconnect node from Vdd and instead connect it to Cc
+  4. Measure voltage of Cc
+  5. Connect node and Cc to GND to discharge them
+
+The measured voltage depends on what happens around the electrode. In an idle state, 50% of the charge of the node (and thus voltage) is transfered to Cc, however when something conductive is moved towards the electrode, the capacitance will increase slightly. With a higher capacitance, the node will have a higher charge, meaning less then 50% of the charge can be trnsfered to Cc until they reach an equal Voltage, which means the overall voltage will be higher, which can be measured by the ADC.
+
 ### Calibration / Compensation
 
-Based on the documentation found online, the PTC has an internal, tunable capacitor that is used to compensate the parasitic capacitance of the electrodes. Every node starts with a default compensation value. As soon as the node is enabled, the library attempts to find a compensation setting that will result in an ADC value of about 512 counts (1/2 of ADC resolution). Based on oscilloscope readings, it can also be said that the PTC tries to have a charge of 50% VCC on the electrode when being acquired. This is the also the reason, why the digital input function of the pins is disabled.
+Based on the documentation found online, the PTC has an internal, tunable capacitor connected after the series resistance to ground that is used to compensate the parasitic capacitance of the electrodes. Every node starts with a default compensation value. As soon as the node is enabled, the library attempts to find a compensation setting that will result in an ADC value of about 512 counts (1/2 of ADC resolution). Based on oscilloscope readings, it can also be said that the PTC tries to have a charge of 50% VCC on the electrode when being acquired. This is the also the reason, why the digital input function of the pins is disabled.
 
 The maximum compensation is about 30pF for Mutual-cap and about 50pF for Self-cap. It is possible to get the compensation capacitance with uint16_t ptc_get_node_cc_fempto(cap_sensor_t* node); - however this function has to do a lot of calculations and is thus a bit bloat-y. It will also return the value in fempto farrads, to avoid floats. Read more here: https://www.microchipdeveloper.com/touch:guide-to-interpret-cc-calibration-value
 
