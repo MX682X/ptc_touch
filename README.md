@@ -112,5 +112,19 @@ Different pins have a different parasitic capacitance. I suspect this is depends
 ### Tuning of nodes
 
 In order to ease the use of the PTC module, the ptc_add_* functions will initialize the cap_sensor_t struct with some default values, like the CC value mentioned above. That values can be easily changed and will be applied the next time a conversion of said node starts. Here is a list:
+ - Analog Gain. Increases the sensetivity of the electrode by adjusting a capacitor on a intergrator (I think) (1x Gain)
+ - Digital Gain. Defines the amount of ADC Oversampling. Will not affect the count value, as it is internally right-shifted. (16x Oversampled)
+ - Charge Share Delay. Affects the Sample length of the ADC. (0 extra clocks)
+ - Preschaler. It is possible to slow down the ADC clock by adjusting the preschaler. (Depends on CPU clock, targeted: 1MHz +/- 25%)
+ - Serial Resistor. Allows to change the serial resistor between the Cc and the node. Fixed at 100k for Self-Cap. Creates RC-low-pass filter.
 
-    To be filled later
+If a node is not sensitive enough, you can increase the Analog Gain (if it becomes too sensitive, an increase of the thresholds might be needed). However it is better to have a bigger node to begin with because the bigger the area, the higher is the capacitance delta.
+
+### Global settings of the State-maschine
+The state-machine, which changes the node's state between Calibration, touch, no touch, etc. uses some variables that are valid for all nodes, those are:
+ - `uint16_t force_recal_delta`. Each node has a threshold value that is used to calculate the delta. This Threshold value is drifiting over time to adjust for enviromental changes. If the threshold value drifts 512 +/- this value, a recalibration of CC is performed. Default: 150
+ - `uint8_t  touched_detect_nom`. Number of consecutive Measurements (Conversions) that are above the touch threshold until the node becomes "touched". Default: 3
+ - `uint8_t  untouched_detect_nom`. Number of consecutive measurments that are below the no-touch threshold until the node is fully untouched. Default: 3
+ - `uint8_t  touched_max_nom`. Number of consecutive measurements plus one in the touched state until a recalibration is forced. Can be disabled by writing 255 to it. Default: 200
+ - `uint8_t  drift_up_nom`. If the delta is higher then the reference, but lower then the threshold, the amount of consecutive measurements plus one, until the reference is incremented. Can be disabled with 255. Default: 20.
+ - `uint8_t  drift_down_nom`. If the delta is below the reference, the amount of consecutive measurements plus one until the reference is decremented. Can be disabled with 255. Default: 20.
