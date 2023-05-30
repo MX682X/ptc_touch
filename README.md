@@ -88,7 +88,7 @@ The ptc_ch_bm_t is a typedef that depends on the pincount of the device and rang
 
 ### PTC Operation
 ![PTC_InnerWorkings](https://github.com/MX682X/ptc_touch/assets/58419867/5cf8496c-ae4d-489f-b341-4c0827145616)
-(Source: Microchip's PTC Subsystem Firmware User's Guide (https://web.archive.org/web/20221225142000/https://www.mouser.com/pdfdocs/SAMA5D2_PTC_Firmware_UG.pdf)
+(Source: [Microchip's PTC Subsystem Firmware User's Guide](https://web.archive.org/web/20221225142000/https://www.mouser.com/pdfdocs/SAMA5D2_PTC_Firmware_UG.pdf))
 
 Most of the following is a hyptohesis based on the publically available documentation and observation.
 The PTC is using a charge transfer between a variable and a fixed capacitance to measure a difference between those two. The variable capacitance in this case is the sensor electrode and the fixed one is the internal Cc. The neat thing about having a dedicated hardware for this, is that Cc is not really fixed, compared to the Sample-and-Hold capacitor of the normal ADC, it can be calibrated to be about the same as the electrode we want to measure (See below).
