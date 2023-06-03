@@ -87,7 +87,7 @@ The reason, why a bit-map is used, is to provide a way to connect the electrodes
 The ptc_ch_bm_t is a typedef that depends on the pincount of the device and ranges from uint8_t to uint16_t (and up to uint64_t on the DAs). Up to 8 PTC-Pins, uint8_t, up to 16 PTC pins, uint16_t, and so on.
 
 ### PTC Operation
-![PTC_InnerWorkings](https://github.com/MX682X/ptc_touch/assets/58419867/5cf8496c-ae4d-489f-b341-4c0827145616)
+![PTC_InnerWorkings](https://github.com/MX682X/ptc_touch/assets/58419867/823c487c-0633-4031-b381-45e7a32867fb)
 (Source: [Microchip's PTC Subsystem Firmware User's Guide](https://web.archive.org/web/20221225142000/https://www.mouser.com/pdfdocs/SAMA5D2_PTC_Firmware_UG.pdf))
 
 Most of the following is a hyptohesis based on the publically available documentation and observation.
