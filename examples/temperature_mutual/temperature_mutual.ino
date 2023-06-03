@@ -58,8 +58,17 @@ void ptc_event_callback(const uint8_t eventType, cap_sensor_t* node) {
       MySerial.println(tempRaw);
     }
     ptc_resume(); // Enables the acquisition
-  } else if (PTC_CB_EVENT_ERR_CALIB  == eventType) {
-    MySerial.print("Calibration failed on node: ");
+  } else if (PTC_CB_EVENT_CONV_CALIB & eventType) {
+    if (PTC_CB_EVENT_ERR_CALIB_LOW == eventType) {
+      MySerial.print("Calib error, Cc too low.");
+    } else if (PTC_CB_EVENT_ERR_CALIB_HIGH == eventType) {
+      MySerial.print("Calib error, Cc too high.");
+    } else if (PTC_CB_EVENT_ERR_CALIB_TO == eventType) {
+      MySerial.print("Calib error, calculation timeout.");
+    } else {
+      MySerial.print("Calib Successful.");
+    }
+    MySerial.print(" Node: ");
     MySerial.println(ptc_get_node_id(node));
   }
 }

@@ -1,11 +1,13 @@
 #include <ptc_touch.h>
 /*
- * This example creates two different sensing nodes.
- * PA4 and PA5 are on the Y-Lines, PA6 is the X-Line.
+ * This example creates three different sensing nodes on pins
+ * PA4 and PA5. PA6 acts as a dedicated shield pin. They get the IDs 0 and 1 respectively.
  * PTC_CB_EVENT_TOUCH_DETECT and PTC_CB_EVENT_TOUCH_RELEASE can
  * be used for quick actions, like switching a pin or variable,
- * but it is recommended to use PTC_CB_EVENT_CONV_MUTUAL_CMPL, as
+ * but it is recommended to use PTC_CB_EVENT_CONV_SELF_CMPL, as
  * otherwise the handling of the successing nodes would be delayed.
+ * This example demonstrates how to use the other sensor nodes
+ * as shield. This improves the signal-to-noise ratio.
  */
 #define MySerial Serial
 
@@ -15,8 +17,8 @@ void setup() {
   MySerial.begin(115200);
 
   // this puts the node on the list and initializes to default values
-  ptc_add_mutualcap_node(&nodes[0], PIN_TO_PTC(PIN_PA4), PIN_TO_PTC(PIN_PA7));    
-  ptc_add_mutualcap_node(&nodes[1], PIN_TO_PTC(PIN_PA5), PIN_TO_PTC(PIN_PA7));
+  ptc_add_selfcap_node(&nodes[0], PIN_TO_PTC(PIN_PA4), PIN_TO_PTC(PIN_PA6));    
+  ptc_add_selfcap_node(&nodes[1], PIN_TO_PTC(PIN_PA5), PIN_TO_PTC(PIN_PA6));
 
   // only enabled nodes will be have a conversion
   ptc_enable_node(&nodes[0]);
@@ -38,10 +40,19 @@ void ptc_event_callback(const uint8_t eventType, cap_sensor_t* node) {
   } else if (PTC_CB_EVENT_TOUCH_RELEASE == eventType) {
     MySerial.print("node released:");
     MySerial.println(ptc_get_node_id(node));
-  } else if (PTC_CB_EVENT_CONV_MUTUAL_CMPL == eventType) {
+  } else if (PTC_CB_EVENT_CONV_SELF_CMPL == eventType) {
     // Do more complex things here
-  } else if (PTC_CB_EVENT_ERR_CALIB  == eventType) {
-    MySerial.print("Calibration failed on node: ");
+  } else if (PTC_CB_EVENT_CONV_CALIB & eventType) {
+    if (PTC_CB_EVENT_ERR_CALIB_LOW == eventType) {
+      MySerial.print("Calib error, Cc too low.");
+    } else if (PTC_CB_EVENT_ERR_CALIB_HIGH == eventType) {
+      MySerial.print("Calib error, Cc too high.");
+    } else if (PTC_CB_EVENT_ERR_CALIB_TO == eventType) {
+      MySerial.print("Calib error, calculation timeout.");
+    } else {
+      MySerial.print("Calib Successful.");
+    }
+    MySerial.print(" Node: ");
     MySerial.println(ptc_get_node_id(node));
   }
 }

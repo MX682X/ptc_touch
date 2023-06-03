@@ -26,7 +26,7 @@
 #ifndef PTC_TOUCH_H
 #define PTC_TOUCH_H
 
-#if defined(MEGATINYCORE)
+#if defined(MEGATINYCORE) || defined(DXCORE)
   #include <Arduino.h>
 #else
   #include <avr/interrupt.h>
@@ -35,8 +35,9 @@
   #endif
 #endif
 
-#include "ptc_touch_types.h"
 #include "ptc_touch_io.h"
+#include "ptc_touch_types.h"
+
 
 
 #ifndef NULL
@@ -54,21 +55,26 @@ extern "C" {
 
 #define NODE_TYPE_NOCONV_bm     (0x00)
 #define NODE_MUTUAL_bm          (0x01)
+#define NODE_RESERVED_bm        (0x02)
 #define NODE_SELFCAP_bm         (0x04)
 #define NODE_SHIELD_bm          (0x08)
 #define NODE_SELFCAP_SHIELD_bm  (NODE_SHIELD_bm | NODE_SELFCAP_bm)  // 0x0C
 #define NODE_TYPE_bm            (NODE_MUTUAL_bm | NODE_SELFCAP_bm | NODE_SHIELD_bm)
 
-#define PTC_CB_EVENT_WAKE_TOUCH       (0x01)
-#define PTC_CB_EVENT_WAKE_NO_TOUCH    (0x02)
-#define PTC_CB_EVENT_TOUCH_DETECT     (0x04)
-#define PTC_CB_EVENT_TOUCH_RELEASE    (0x05)
-#define PTC_CB_EVENT_CONV_CMPL        (0x10)
-#define PTC_CB_EVENT_CONV_MUTUAL_CMPL (PTC_CB_EVENT_CONV_CMPL | NODE_MUTUAL_bm)
-#define PTC_CB_EVENT_CONV_SELF_CMPL   (PTC_CB_EVENT_CONV_CMPL | NODE_SELFCAP_bm)
-#define PTC_CB_EVENT_CONV_SHIELD_CMPL (PTC_CB_EVENT_CONV_CMPL | NODE_SELFCAP_SHIELD_bm)
-#define PTC_CB_EVENT_CONV_CALIB       (0x80)
-#define PTC_CB_EVENT_ERR_CALIB        (0x81)
+#define PTC_CB_EVENT_TOUCH            (0x10)
+#define PTC_CB_EVENT_WAKE_TOUCH       (PTC_CB_EVENT_TOUCH | 0x01)   // 0x11
+#define PTC_CB_EVENT_WAKE_NO_TOUCH    (PTC_CB_EVENT_TOUCH | 0x02)   // 0x12
+#define PTC_CB_EVENT_TOUCH_DETECT     (PTC_CB_EVENT_TOUCH | 0x03)   // 0x13
+#define PTC_CB_EVENT_TOUCH_RELEASE    (PTC_CB_EVENT_TOUCH | 0x04)   // 0x14
+#define PTC_CB_EVENT_CONV_CMPL        (0x20)
+#define PTC_CB_EVENT_CONV_MUTUAL_CMPL (PTC_CB_EVENT_CONV_CMPL | NODE_MUTUAL_bm)         // 0x21
+#define PTC_CB_EVENT_CONV_SELF_CMPL   (PTC_CB_EVENT_CONV_CMPL | NODE_SELFCAP_bm)        // 0x24
+#define PTC_CB_EVENT_CONV_SHIELD_CMPL (PTC_CB_EVENT_CONV_CMPL | NODE_SELFCAP_SHIELD_bm) // 0x28
+#define PTC_CB_EVENT_CONV_CALIB       (0x40)
+#define PTC_CB_EVENT_ERR_CALIB        (PTC_CB_EVENT_CONV_CALIB | 0x01)  // 0x31
+#define PTC_CB_EVENT_ERR_CALIB_LOW    (PTC_CB_EVENT_ERR_CALIB | 0x02)   // 0x32
+#define PTC_CB_EVENT_ERR_CALIB_HIGH   (PTC_CB_EVENT_ERR_CALIB | 0x04)   // 0x34
+#define PTC_CB_EVENT_ERR_CALIB_TO     (PTC_CB_EVENT_ERR_CALIB | 0x08)   // 0x38
 
 
 
@@ -92,10 +98,11 @@ extern "C" {
 
 #define PTC_CHECK_FOR_BAD_POINTER(__p__)  \
   if (NULL == __p__) {                    \
-    badArg("Null pointer detected");      \
+    if (__builtin_constant_p(__p__)) {    \
+      badArg("Null pointer detected");    \
+    }                                     \
     return PTC_LIB_BAD_POINTER;           \
   }
-
 
 
 
@@ -235,6 +242,8 @@ uint8_t ptc_lp_init(cap_sensor_t* node);
 uint8_t ptc_lp_disable(void);
 uint8_t ptc_lp_was_waken(void);
 
+// Called by the interrupt routine. Saves result and selects next node
+extern void ptc_eoc(void);
 
 
 #ifdef __cplusplus

@@ -89,20 +89,21 @@ The ptc_ch_bm_t is a typedef that depends on the pincount of the device and rang
 ### PTC Operation
 ![PTC_InnerWorkings](https://github.com/MX682X/ptc_touch/assets/58419867/823c487c-0633-4031-b381-45e7a32867fb)
 (Source: [Microchip's PTC Subsystem Firmware User's Guide](https://web.archive.org/web/20221225142000/https://www.mouser.com/pdfdocs/SAMA5D2_PTC_Firmware_UG.pdf))
+This schematic was made for a different chip, but it is likely to look similar to this on the AVRs.
 
-Most of the following is a hyptohesis based on the publically available documentation and observation.
+Most of the following is a hypothesis based on the publically available documentation and observation.
 The PTC is using a charge transfer between a variable and a fixed capacitance to measure a difference between those two. The variable capacitance in this case is the sensor electrode and the fixed one is the internal Cc. The neat thing about having a dedicated hardware for this, is that Cc is not really fixed, compared to the Sample-and-Hold capacitor of the normal ADC, it can be calibrated to be about the same as the electrode we want to measure (See below).
 
-In order to mesure the capacitance of the node, the PTC performs following Steps:
+In order to measure the capacitance of the node, the PTC performs following Steps:
   1. Charge the electrode to Vdd
-  2. Wait for Chrage to complete
+  2. Wait for charge to complete
   3. Disconnect node from Vdd and instead connect it to Cc
   4. Measure voltage of Cc
   5. Connect node and Cc to GND to discharge them
 
-The measured voltage depends on what happens around the electrode. In an idle state, 50% of the charge of the node (and thus voltage) is transfered to Cc, however when something conductive is moved towards the electrode, the capacitance will increase slightly. With a higher capacitance, the node will have a higher charge, meaning less then 50% of the charge can be trnsfered to Cc until they reach an equal Voltage, which means the overall voltage will be higher, which can be measured by the ADC.
+The measured voltage depends on what happens around the electrode. In an idle state, 50% of the charge of the node (and thus voltage) is transferred to Cc, however when something conductive is moved towards the electrode, the capacitance will increase slightly. With a higher capacitance, the node will have a higher charge, meaning less then 50% of the charge can be transferred to Cc until they reach an equal Voltage, which means the overall voltage will be higher, which can be measured by the ADC.
 
-If you have trouble understanding: Imagine two equally sized volumes connected trough a valve. You fill the first up with water, open the valve and look on the second, how high the water has risen. After marking the "idle" level, when you put a finger in the water and see the water rise. This new level is the increase in voltage due to an inteference.
+If you have trouble understanding: Imagine two equally sized volumes connected trough a valve. You fill the first up with water, open the valve and look on the second, how high the water has risen. After marking the "idle" level, when you put a finger in the water and see the water rise. This new level is the increase in voltage due to an interference.
 
 ### Calibration / Compensation
 
@@ -115,17 +116,17 @@ Different pins have a different parasitic capacitance. I suspect this is depends
 ### Tuning of nodes
 
 In order to ease the use of the PTC module, the ptc_add_* functions will initialize the cap_sensor_t struct with some default values, like the CC value mentioned above. That values can be easily changed and will be applied the next time a conversion of said node starts. Here is a list:
- - Analog Gain. Increases the sensetivity of the electrode by adjusting a capacitor on a intergrator (I think) (1x Gain)
+ - Analog Gain. Increases the sensitivity of the electrode by adjusting a capacitor on a integrator (I think) (1x Gain)
  - Digital Gain. Defines the amount of ADC Oversampling. Will not affect the count value, as it is internally right-shifted. (16x Oversampled)
  - Charge Share Delay. Affects the Sample length of the ADC. (0 extra clocks)
- - Preschaler. It is possible to slow down the ADC clock by adjusting the preschaler. (Depends on CPU clock, targeted: 1MHz +/- 25%)
+ - Prescaler. It is possible to slow down the ADC clock by adjusting the Prescaler. (Depends on CPU clock, targeted: 1MHz +/- 25%)
  - Serial Resistor. Allows to change the serial resistor between the Cc and the node. Fixed at 100k for Self-Cap. Creates RC-low-pass filter.
 
 If a node is not sensitive enough, you can increase the Analog Gain (if it becomes too sensitive, an increase of the thresholds might be needed). However it is better to have a bigger node to begin with because the bigger the area, the higher is the capacitance delta.
 
 ### Global settings of the State-maschine
 The state-machine, which changes the node's state between Calibration, touch, no touch, etc. uses some variables that are valid for all nodes, those are:
- - `uint16_t force_recal_delta`. Each node has a threshold value that is used to calculate the delta. This Threshold value is drifiting over time to adjust for enviromental changes. If the threshold value drifts 512 +/- this value, a recalibration of CC is performed. Default: 150
+ - `uint16_t force_recal_delta`. Each node has a threshold value that is used to calculate the delta. This Threshold value is drifting over time to adjust for environmental changes. If the threshold value drifts 512 +/- this value, a recalibration of CC is performed. Default: 150
  - `uint8_t  touched_detect_nom`. Number of consecutive Measurements (Conversions) that are above the touch threshold until the node becomes "touched". Default: 3
  - `uint8_t  untouched_detect_nom`. Number of consecutive measurments that are below the no-touch threshold until the node is fully untouched. Default: 3
  - `uint8_t  touched_max_nom`. Number of consecutive measurements plus one in the touched state until a recalibration is forced. Can be disabled by writing 255 to it. Default: 200

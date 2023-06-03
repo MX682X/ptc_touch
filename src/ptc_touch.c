@@ -32,9 +32,6 @@ uint8_t ptc_process_calibrate (cap_sensor_t* node);
 // Handles adjustment of the reference value when a button is not pressed
 void ptc_process_adjust ();
 
-// Called by the interrupt routine. Saves result and selects next node
-void ptc_eoc(void);
-
 void ptc_set_registers(cap_sensor_t* node);
 
 
@@ -104,9 +101,23 @@ const uint8_t ptc_a_gain_mc_lut[] = {
 //uint8_t ptc_touch_stack = 0;
 //#endif
 
+// Workarounds to make the code work with DAs... Argh.
+#if defined (__PTC_DA__)
+  #ifndef ADC_SAMPNUM_ACC1_gc
+    #define ADC_SAMPNUM_ACC1_gc ADC_SAMPNUM_NONE_gc 
+  #endif
+  #ifndef ADC_REFSEL_VDDREF_gc
+    #define ADC_REFSEL_VDDREF_gc 0x00
+  #endif
+#endif
 
-
-
+#if defined (__PTC_Tiny__)
+  #define PTC_DEFAULT_SC_CC 0x0567
+  #define PTC_DEFAULT_MC_CC 0x0234
+#elif defined (__PTC_DA__)
+  #define PTC_DEFAULT_SC_CC 0x00F0
+  #define PTC_DEFAULT_MC_CC 0x00A0
+#endif
 /*
  * Different Functions that change the behaviour of the supplied node
  */
@@ -175,7 +186,11 @@ uint8_t ptc_node_set_gain(cap_sensor_t* node, uint8_t aGain, uint8_t dGain) {
 uint8_t ptc_suspend(void) {
   if (PTC_LIB_IDLE == ptc_lib_state) { // allow disabling only outside conversions
     ptc_lib_state = PTC_LIB_SUSPENDED;
-    PTC.CTRLP = 0x00;
+    #if defined (__PTC_Tiny__)
+      PTC.CTRLP = 0x00;
+    #elif defined (__PTC_DA__)
+      PTC.CTRLA = 0x00;
+    #endif
     return PTC_LIB_SUCCESS;
   }
   return PTC_LIB_WRONG_STATE;
@@ -193,27 +208,31 @@ void ptc_resume(void) {
 void ptc_init_ADC0(void) {
   PTC_t* pPTC;
   _fastPtr_d(pPTC, &PTC);
-  #if   F_CPU   > 24000000
-    pPTC->CTRLC  = ADC_PRESC_DIV32_gc | ADC_REFSEL_VDDREF_gc | ADC_SAMPCAP_bm;
-  #elif F_CPU  >= 12000000
-    pPTC->CTRLC  = ADC_PRESC_DIV16_gc | ADC_REFSEL_VDDREF_gc | ADC_SAMPCAP_bm;
-  #elif F_CPU  >=  6000000
-    pPTC->CTRLC  =  ADC_PRESC_DIV8_gc | ADC_REFSEL_VDDREF_gc | ADC_SAMPCAP_bm;
-  #elif F_CPU  >=  3000000
-    pPTC->CTRLC  =  ADC_PRESC_DIV4_gc | ADC_REFSEL_VDDREF_gc | ADC_SAMPCAP_bm;
-  #else
-    pPTC->CTRLC  =  ADC_PRESC_DIV2_gc | ADC_REFSEL_VDDREF_gc | ADC_SAMPCAP_bm;
+  #if defined (__PTC_Tiny__)
+    #if   F_CPU   > 24000000
+      pPTC->CTRLC  = ADC_PRESC_DIV32_gc | ADC_REFSEL_VDDREF_gc | ADC_SAMPCAP_bm;
+    #elif F_CPU  >= 12000000
+      pPTC->CTRLC  = ADC_PRESC_DIV16_gc | ADC_REFSEL_VDDREF_gc | ADC_SAMPCAP_bm;
+    #elif F_CPU  >=  6000000
+      pPTC->CTRLC  =  ADC_PRESC_DIV8_gc | ADC_REFSEL_VDDREF_gc | ADC_SAMPCAP_bm;
+    #elif F_CPU  >=  3000000
+      pPTC->CTRLC  =  ADC_PRESC_DIV4_gc | ADC_REFSEL_VDDREF_gc | ADC_SAMPCAP_bm;
+    #else
+      pPTC->CTRLC  =  ADC_PRESC_DIV2_gc | ADC_REFSEL_VDDREF_gc | ADC_SAMPCAP_bm;
+    #endif
+    #if   (F_CPU == 6000000 || F_CPU == 12000000 || F_CPU == 24000000 || F_CPU ==25000000)
+      pPTC->SAMPCTRL = (7);
+    #elif (F_CPU == 5000000 || F_CPU == 10000000 || F_CPU == 20000000)
+      pPTC->SAMPCTRL = (13);
+    #else
+      pPTC->SAMPCTRL = (10);
+    #endif
+    pPTC->CTRLD    = ADC_INITDLY_DLY16_gc;
+    pPTC->CTRLB    = ADC_SAMPNUM_ACC1_gc;
+    pPTC->CTRLA    = ADC_ENABLE_bm;
+  #elif defined (__PTC_DA__)
+  
   #endif
-  #if   (F_CPU == 6000000 || F_CPU == 12000000 || F_CPU == 24000000 || F_CPU ==25000000)
-    pPTC->SAMPCTRL = (7);
-  #elif (F_CPU == 5000000 || F_CPU == 10000000 || F_CPU == 20000000)
-    pPTC->SAMPCTRL = (13);
-  #else
-    pPTC->SAMPCTRL = (10);
-  #endif
-  pPTC->CTRLD    = ADC_INITDLY_DLY16_gc;
-  pPTC->CTRLB    = ADC_SAMPNUM_ACC1_gc;
-  pPTC->CTRLA    = ADC_ENABLE_bm;
 }
 
 
@@ -235,7 +254,7 @@ uint8_t ptc_add_selfcap_node_asserted(cap_sensor_t* node, const ptc_ch_bm_t yCh,
 
   node->touch_in_th = 20;
   node->touch_out_th = 10;
-  node->hw_compCaps = 0x0567;  /* value from qTouch */
+  node->hw_compCaps = PTC_DEFAULT_SC_CC;  /* value from qTouch */
   node->hw_rsel_presc = NODE_RSEL_PRSC(RSEL_VAL_0, PTC_PRESC_DEFAULT);
 
   return PTC_LIB_SUCCESS;
@@ -254,7 +273,7 @@ uint8_t ptc_add_mutualcap_node_asserted(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc
 
   node->touch_in_th = 10;
   node->touch_out_th = 5;
-  node->hw_compCaps = 0x0234;  /* value from qTouch */
+  node->hw_compCaps = PTC_DEFAULT_MC_CC;  /* value from qTouch */
   node->hw_rsel_presc = NODE_RSEL_PRSC(RSEL_VAL_100, PTC_PRESC_DEFAULT); 
   
   return PTC_LIB_SUCCESS;
@@ -267,31 +286,36 @@ void ptc_add_node_common(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh) {
   node->hw_yCh_bm = yCh;
   node->hw_a_d_gain = NODE_GAIN(ADC_SAMPNUM_ACC1_gc, ADC_SAMPNUM_ACC16_gc);
   
-  uint8_t* src = (uint8_t*)&PTC.PIN_OVR;  // Get "addresses" of relevant elements
-  uint8_t* orY = (uint8_t*)&yCh;          // This allows to split the uint64_t to an access of one byte at a time
-  uint8_t* orX = (uint8_t*)&xCh;          // on AtTinies, the compiler unrolls the loop to two iterations
-  uint8_t bit_pos  = 0;   // counts from 0 to "highest PTC pin number"
-  for (uint8_t i = 0; i < sizeof(ptc_ch_bm_t); i++) {
-    // this equals PTC.PIN_OVR |= (xCh | yCh);, but more friendly for CPU-registers on DAs with uint64_t
-    uint8_t temp_bm = *(orY++) | *(orX++);
-    *(src) |= temp_bm;
-    src++;
+  #if defined (__PTC_Tiny__)
+    uint8_t* src = (uint8_t*)&PTC.PIN_OVR;  // Get "addresses" of relevant elements
+    uint8_t* orY = (uint8_t*)&yCh;          // This allows to split the uint64_t to an access of one byte at a time
+    uint8_t* orX = (uint8_t*)&xCh;          // on AtTinies, the compiler unrolls the loop to two iterations
+    uint8_t bit_pos  = 0;   // counts from 0 to "highest PTC pin number"
+    for (uint8_t i = 0; i < sizeof(ptc_ch_bm_t); i++) {
+      // this equals PTC.PIN_OVR |= (xCh | yCh);, but more friendly for CPU-registers on DAs with uint64_t
+      uint8_t temp_bm = *(orY++) | *(orX++);
+      *(src) |= temp_bm;
+      src++;
 
-    for (uint8_t j = 0; j < 8; j++) {
-      if (temp_bm & 0x01) {
-        if (bit_pos < sizeof(ptc_ch_to_pin)) {   // avoid accesses outside of the array, which can be smaller then the bit-map
-          uint8_t offset = ptc_ch_to_pin[bit_pos];
-          if (offset != 0) {
-            uint16_t basePointer = (uint16_t)&PORTA;
-            uint8_t* portSettings = (uint8_t*)(basePointer + offset);
-            (*portSettings) = PORT_ISC_INPUT_DISABLE_gc;
+      for (uint8_t j = 0; j < 8; j++) {
+        if (temp_bm & 0x01) {
+          if (bit_pos < sizeof(ptc_ch_to_pin)) {   // avoid accesses outside of the array, which can be smaller then the bit-map
+            uint8_t offset = ptc_ch_to_pin[bit_pos];
+            if (offset != 0) {
+              uint16_t basePointer = (uint16_t)&PORTA;
+              uint8_t* portSettings = (uint8_t*)(basePointer + offset);
+              (*portSettings) = PORT_ISC_INPUT_DISABLE_gc;
+            }
           }
         }
+        bit_pos++;
+        temp_bm >>= 1;
       }
-      bit_pos++;
-      temp_bm >>= 1;
     }
-  }
+  #elif defined (__PTC_DA__)
+  
+  
+  #endif
 }
 
 
@@ -476,9 +500,15 @@ void ptc_process_node_sm (cap_sensor_t* node) {
         nodeSM = PTC_SM_NO_TOUCH;
       }
       ptc_event_callback(PTC_CB_EVENT_CONV_CALIB, node);
-    } else if (PTC_LIB_ERROR == retVal || lastChange > 10) {  // if we stay here for over 10 conversions, something didn't went right
+    } else if (PTC_LIB_SUCCESS != retVal || lastChange > 10) {  // if we stay here for over 10 conversions, something didn't went right
       node->state.error = 1;
-      ptc_event_callback(PTC_CB_EVENT_ERR_CALIB, node);
+      if (PTC_LIB_CALIB_TOO_LOW == retVal) {
+        ptc_event_callback(PTC_CB_EVENT_ERR_CALIB_LOW, node);
+      } else if (PTC_LIB_CALIB_TOO_HIGH == retVal) {
+        ptc_event_callback(PTC_CB_EVENT_ERR_CALIB_HIGH, node);
+      } else {
+        ptc_event_callback(PTC_CB_EVENT_ERR_CALIB_TO, node);
+      }
       return;
     } else if (PTC_LIB_SUCCESS == retVal) {
       // calibration didn't finish (yet), but didn't threw an error
@@ -589,119 +619,152 @@ void ptc_process_node_sm (cap_sensor_t* node) {
 uint8_t ptc_process_calibrate (cap_sensor_t* node) {
   uint16_t rawData = node->sensorData;
   
-  uint16_t compensation = node->hw_compCaps;
-  uint8_t cc_accurate =             compensation        & 0x0F;
-  uint8_t cc_fine =      ((uint8_t) compensation >> 4)  & 0x0F;
-  uint8_t cc_coarse =     (uint8_t)(compensation >> 8)  & 0x0F;
-  uint8_t cc_add_rough =  (uint8_t)(compensation >> 8)  & 0xC0;
-  uint8_t cc_rough  =     (uint8_t)(compensation >> 12) & 0x03;
+  #if defined(__PTC_Tiny__)
+    uint16_t compensation = node->hw_compCaps;
+    uint8_t cc_accurate =             compensation        & 0x0F;
+    uint8_t cc_fine =      ((uint8_t) compensation >> 4)  & 0x0F;
+    uint8_t cc_coarse =     (uint8_t)(compensation >> 8)  & 0x0F;
+    uint8_t cc_add_rough =  (uint8_t)(compensation >> 8)  & 0xC0;
+    uint8_t cc_rough  =     (uint8_t)(compensation >> 12) & 0x03;
 
-  //uint8_t err = 0;
-  
-  int8_t dirOvf;
-  int8_t dir;
-  if (rawData > 0x0200) {
-    rawData = rawData - 0x1FF;
-    if (rawData < 10) {
-      return PTC_LIB_CALIB_DONE;
-    }
+    //uint8_t err = 0;
 
-    if (node->type & NODE_MUTUAL_bm){
-      dir = -1;
-      dirOvf = -6;
-      rawData /= 2;
-    } else {
-      dir = 1;
-      dirOvf = 6;
-      if (rawData > 0x0100) {
-        if (cc_add_rough <= 0xC0) {
-          cc_add_rough = (cc_add_rough + 0x40);
-          rawData -= 0xF0;
-        }
+    int8_t dirOvf;
+    int8_t dir;
+    if (rawData > 0x0200) {
+      rawData = rawData - 0x1FF;
+      if (rawData < 10) {
+        return PTC_LIB_CALIB_DONE;
       }
-    }
-  } else {
-    rawData = 0x1FF - rawData;
-    if (rawData < 10) {
-      return PTC_LIB_CALIB_DONE;
-    }
 
-    if (node->type & NODE_MUTUAL_bm){
-      dir = 1;
-      dirOvf = 6;
-      rawData /= 2;
-    } else {
-      dir = -1;
-      dirOvf = -6;
-      if (rawData > 0x0100) {
-        if (cc_add_rough >= 0x40) {
-          cc_add_rough = (cc_add_rough - 0x40);
-          rawData -= 0xF0;
-        }
-      }
-    }
-  }
-
-  while (rawData > 0x0001) {
-    while (rawData > 0x00CF) {
-      cc_rough += dir;            // this algorithm thakes advantage of intger underflow
-      if (cc_rough > 0x03) {      // by checking against >0x03, we can also check for 0xFF aka -1
-        cc_rough -= dir;          // thus saving some flash. +/-1 can be made in one insn
-        break;                    // by using sub reg with 0xFF or 0x01 in a reg respectively
-      }
-      rawData -= 0xCF;
-    }
-    
-    while (rawData > 0x0015) {
-      cc_coarse += dir;
-      if (cc_coarse > 0x0F)
-        break;
-      rawData -= 0x15;
-    }
-    if (cc_coarse > 0x0F) {
-      cc_rough += dir;
-      if (cc_rough > 0x03) {
-        cc_rough -= dir;
-        cc_coarse -= dir;
+      if (node->type & NODE_MUTUAL_bm){
+        dir = -1;
+        dirOvf = -6;
+        rawData /= 2;
       } else {
-        cc_coarse -= dirOvf;
+        dir = 1;
+        dirOvf = 6;
+        if (rawData > 0x0100) {
+          if (cc_add_rough <= 0xC0) {
+            cc_add_rough = (cc_add_rough + 0x40);
+            rawData -= 0xF0;
+          }
+        }
+      }
+    } else {
+      rawData = 0x1FF - rawData;
+      if (rawData < 10) {
+        return PTC_LIB_CALIB_DONE;
+      }
+
+      if (node->type & NODE_MUTUAL_bm){
+        dir = 1;
+        dirOvf = 6;
+        rawData /= 2;
+      } else {
+        dir = -1;
+        dirOvf = -6;
+        if (rawData > 0x0100) {
+          if (cc_add_rough >= 0x40) {
+            cc_add_rough = (cc_add_rough - 0x40);
+            rawData -= 0xF0;
+          }
+        }
       }
     }
-    
-    
-    while (rawData > 0x0001) {
-      cc_fine += dir;
-      if (cc_fine > 0x0F)
-        break;
-      rawData -= 0x02;
-    }
 
-    if (cc_fine > 0x0F) {
-      cc_coarse += dir;
+    while (rawData > 0x0001) {
+      while (rawData > 0x00CF) {
+        cc_rough += dir;            // this algorithm thakes advantage of intger underflow
+        if (cc_rough > 0x03) {      // by checking against >0x03, we can also check for 0xFF aka -1
+          cc_rough -= dir;          // thus saving some flash. +/-1 can be made in one insn
+          break;                    // by using sub reg with 0xFF or 0x01 in a reg respectively
+        }
+        rawData -= 0xCF;
+      }
+      
+      while (rawData > 0x0015) {
+        cc_coarse += dir;
+        if (cc_coarse > 0x0F)
+          break;
+        rawData -= 0x15;
+      }
       if (cc_coarse > 0x0F) {
         cc_rough += dir;
         if (cc_rough > 0x03) {
           cc_rough -= dir;
           cc_coarse -= dir;
-          cc_fine -= dir;
-          return PTC_LIB_ERROR;
         } else {
           cc_coarse -= dirOvf;
         }
-      } else {
-        cc_fine -= dirOvf;
       }
-    } /* if (cc_fine > 0x0F) */
-  } /* (rawData > 0x0001) */
+      
+      
+      while (rawData > 0x0001) {
+        cc_fine += dir;
+        if (cc_fine > 0x0F)
+          break;
+        rawData -= 0x02;
+      }
+
+      if (cc_fine > 0x0F) {
+        cc_coarse += dir;
+        if (cc_coarse > 0x0F) {
+          cc_rough += dir;
+          if (cc_rough > 0x03) {
+            cc_rough -= dir;
+            cc_coarse -= dir;
+            cc_fine -= dir;
+            if (dir < 0)
+              return PTC_LIB_CALIB_TOO_LOW;
+            else 
+              return PTC_LIB_CALIB_TOO_HIGH;
+          } else {
+            cc_coarse -= dirOvf;
+          }
+        } else {
+          cc_fine -= dirOvf;
+        }
+      } /* if (cc_fine > 0x0F) */
+    } /* (rawData > 0x0001) */
 
 
-  cc_fine <<= 4;
-  cc_rough <<= 4;
-  cc_rough |= cc_add_rough;
-  cc_rough |= cc_coarse;
-  cc_fine  |= cc_accurate;
-  node->hw_compCaps = (uint16_t)((cc_rough << 8) | cc_fine);
-  return PTC_LIB_SUCCESS;
+    cc_fine <<= 4;
+    cc_rough <<= 4;
+    cc_rough |= cc_add_rough;
+    cc_rough |= cc_coarse;
+    cc_fine  |= cc_accurate;
+    node->hw_compCaps = (uint16_t)((cc_rough << 8) | cc_fine);
+    return PTC_LIB_SUCCESS;
+  #elif defined (__PTC_DA__)
+    int8_t dir;
+    if (rawData > 0x0200) {
+      rawData = rawData - 0x1FF;
+      if (rawData < 5) {
+        return PTC_LIB_CALIB_DONE;
+      }
+
+      if (node->type & NODE_MUTUAL_bm) {
+        dir = -1;
+        rawData /= 2;
+      } else {
+        dir = 1;
+      }
+    } else {
+      rawData = 0x1FF - rawData;
+      if (rawData < 5) {
+        return PTC_LIB_CALIB_DONE;
+      }
+
+      if (node->type & NODE_MUTUAL_bm) {
+        dir = 1;
+        rawData /= 2;
+      } else {
+        dir = -1;
+      }
+    }
+    node->hw_compCaps += (int16_t)(dir * rawData);
+  #endif
 }
 
 
@@ -712,6 +775,7 @@ void ptc_init_conversion(uint8_t nodeType) {
   if (ptc_lib_state != PTC_LIB_IDLE)
     return;
   
+#if defined (__PTC_Tiny__)
   pPTC->CTRLP = 0x00;
   if (nodeType == NODE_MUTUAL_bm) {  /* NODE_MUTUAL */
     pPTC->CTRLP    = 0xC0 | 0x20;
@@ -747,6 +811,59 @@ void ptc_init_conversion(uint8_t nodeType) {
     ptc_lib_state = PTC_LIB_CONV_PROG;
     ptc_start_conversion(firstNode);
   }
+
+#elif defined (__PTC_DA__)
+
+  if (nodeType == NODE_MUTUAL_bm) {
+    pPTC->CTRL_SC = 0x00;
+    //PTC.CTRL_BOOST = 0x00;
+    pPTC->CTRLA = 0x00;
+  } else if (nodeType == NODE_SELFCAP_bm || nodeType == NODE_SELFCAP_SHIELD_bm) {
+    pPTC->CTRL_SC = 0x01;
+    //PTC.CTRL_BOOST = 0x00;
+    pPTC->CTRLA = 0x00;
+  //} else if (nodeType == 0x82) {  // unused
+  //  PTC.CTRL_SC = 0x01;
+  //  PTC.CTRL_BOOST = 0x09;
+  //  PTC.CTRLA = 0x00;
+  } else {
+    return;
+  }
+  
+  
+  uint8_t freq = freq_select;
+  if (nodeType == NODE_MUTUAL_bm) {
+    pPTC->SAMPDLY = 0x00;
+    if (freq < 0x10) /* freq is 0 - 0x0F, 0x10 is auto variation */
+      freq |= ADC_INITDLY_DLY16_gc;
+    else
+      freq = ADC_INITDLY_DLY16_gc | ADC_SAMPDLY_DLY15_gc;
+    pPTC->CTRLD = freq;
+  } else {
+    pPTC->CTRLD = ADC_INITDLY_DLY16_gc;
+    if (freq > 0x0F)
+      freq = 0x0F;
+    pPTC->SAMPDLY = freq;
+  }
+  
+  pPTC->INTFLAGS = ADC_RESRDY_bm | ADC_WCMP_bm; // clear ISR flags, if there were unhandled
+
+  currConvType = nodeType;
+  if (NULL != lowPowerNode) {
+    pPTC->INTCTRL = ADC_WCMP_bm;  // Wakeup only above of window
+    pPTC->CTRLE = ADC_WINCM_ABOVE_gc;
+    pPTC->WINHT = (lowPowerNode->reference + lowPowerNode->touch_in_th) << (lowPowerNode->hw_a_d_gain & 0x0F);
+    ptc_lib_state = PTC_LIB_EVENT;
+    ptc_start_conversion(lowPowerNode);
+  } else {
+    pPTC->INTCTRL = ADC_RESRDY_bm;
+    pPTC->CTRLE = ADC_WINCM_NONE_gc;
+    ptc_lib_state = PTC_LIB_CONV_PROG;
+    ptc_start_conversion(firstNode);
+  }
+#else
+  #warning "Neither __PTC_Tiny__ nor __PTC_DA__ defined"
+#endif
 }
 
 void ptc_start_conversion (cap_sensor_t* node) {
@@ -794,21 +911,25 @@ void ptc_set_registers(cap_sensor_t* node) {
     chargeDelay = 0x1F;
   }
   
-  pPTC->YBM  = node->hw_yCh_bm;
-  pPTC->XBM  = node->hw_xCh_bm;
-  pPTC->COMP = node->hw_compCaps;
-  pPTC->AGAIN = analogGain;
-  pPTC->SAMPCTRL = chargeDelay;
-  pPTC->CTRLB = node->hw_a_d_gain & 0x0F;
-  pPTC->RES = node->hw_rsel_presc / 16;
-  pPTC->CTRLC = (node->hw_rsel_presc & 0x0F) | ADC_REFSEL_VDDREF_gc;
-  pPTC->CTRLP |= 0x03;
-  pPTC->CTRLA = ADC_RUNSTBY_bm | ADC_ENABLE_bm; /* 0x81 */
+  #if defined (__PTC_Tiny__)
+    pPTC->YBM  = node->hw_yCh_bm;
+    pPTC->XBM  = node->hw_xCh_bm;
+    pPTC->COMP = node->hw_compCaps;
+    pPTC->AGAIN = analogGain;
+    pPTC->SAMPCTRL = chargeDelay;
+    pPTC->CTRLB = node->hw_a_d_gain & 0x0F;
+    pPTC->RES = node->hw_rsel_presc / 16;
+    pPTC->CTRLC = (node->hw_rsel_presc & 0x0F) | ADC_REFSEL_VDDREF_gc;
+    pPTC->CTRLP |= 0x03;
+    pPTC->CTRLA = ADC_RUNSTBY_bm | ADC_ENABLE_bm; /* 0x81 */
 
-  if (0 == node->state.low_power) 
-    pPTC->COMMAND = 0x01; // Normal opertion: Manual Start
-  else 
-    pPTC->EVCTRL = 0x01;  // Low Power: Start by positive Flank on Event
+    if (0 == node->state.low_power) 
+      pPTC->COMMAND = 0x01; // Normal opertion: Manual Start
+    else 
+      pPTC->EVCTRL = 0x01;  // Low Power: Start by positive Flank on Event
+  #elif defined (__PTC_DA__)
+  
+  #endif
 }
 
 void ptc_eoc(void) {
@@ -878,7 +999,7 @@ uint8_t ptc_append_node(cap_sensor_t* pNewNode) {
 }
 
 
-
+#if defined(__PTC_Tiny__)
 ISR(ADC0_RESRDY_vect) {
   ptc_eoc();
 }
@@ -886,3 +1007,8 @@ ISR(ADC0_RESRDY_vect) {
 ISR(ADC0_WCOMP_vect) {
   ptc_eoc();
 }
+#elif defined(__PTC_DA__)
+ISR(PTC_PTC_vect) {
+  ptc_eoc();
+}
+#endif

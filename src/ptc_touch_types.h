@@ -11,8 +11,46 @@
 extern "C" {
 #endif
 
-
 #include <avr/io.h>
+
+#if (defined(__AVR_ATtiny814__) || defined(__AVR_ATtiny1614__) || defined(__AVR_ATtiny3214__))
+  typedef uint8_t  ptc_id_t;
+  typedef uint8_t ptc_ch_bm_t;
+  #define __PTC_Tiny__
+  #define __PTC_Pincount__ 6
+#elif (defined(__AVR_ATtiny816__) || defined(__AVR_ATtiny1616__) || defined(__AVR_ATtiny3216__))
+  typedef uint8_t  ptc_id_t;
+  typedef uint16_t ptc_ch_bm_t;
+  #define __PTC_Tiny__
+  #define __PTC_Pincount__ 12
+#elif (defined(__AVR_ATtiny817__) || defined(__AVR_ATtiny1617__) || defined(__AVR_ATtiny3217__))
+  typedef uint8_t  ptc_id_t;
+  typedef uint16_t ptc_ch_bm_t;
+  #define __PTC_Tiny__
+  #define __PTC_Pincount__ 14
+#elif (defined(__AVR_AVR32DA28__) || defined(__AVR_AVR64DA28__) || defined(__AVR_AVR128DA28__))
+  typedef uint16_t  ptc_id_t;
+  typedef uint64_t  ptc_ch_bm_t;
+  #define __PTC_DA__
+  #define __PTC_Pincount__ 17
+#elif (defined(__AVR_AVR32DA32__) || defined(__AVR_AVR64DA32__) || defined(__AVR_AVR128DA32__))
+  typedef uint16_t  ptc_id_t;
+  typedef uint64_t  ptc_ch_bm_t;
+  #define __PTC_DA__
+  #define __PTC_Pincount__ 21
+#elif (defined(__AVR_AVR32DA48__) || defined(__AVR_AVR64DA48__) || defined(__AVR_AVR128DA48__))
+  typedef uint16_t  ptc_id_t;
+  typedef uint64_t  ptc_ch_bm_t;
+  #define __PTC_DA__
+  #define __PTC_Pincount__ 31
+#elif (defined(__AVR_AVR32DA64__) || defined(__AVR_AVR64DA64__) || defined(__AVR_AVR128DA64__))
+  typedef uint16_t  ptc_id_t;
+  typedef uint64_t  ptc_ch_bm_t;
+  #define __PTC_DA__
+  #define __PTC_Pincount__ 47
+#else
+  #error "PTC not supported by this chip"
+#endif
 
 /**
  * PTC series resistor setting. For Mutual cap mode, this series
@@ -70,39 +108,7 @@ typedef enum PTC_PRESC_enum
   PTC_PRESC_DIV256_gc = (0x07<<0)  /* CLK_PER divided by 256 */
 } PTC_PRESC_t;
 
-#if (defined(__AVR_ATtiny814__) || defined(__AVR_ATtiny1614__) || defined(__AVR_ATtiny3214__))
-  typedef uint8_t  ptc_id_t;
-  typedef uint8_t ptc_ch_bm_t;
-#elif  (defined(__AVR_ATtiny816__)  || defined(__AVR_ATtiny817__)   || \
-        defined(__AVR_ATtiny1616__) || defined(__AVR_ATtiny1617__)  || \
-        defined(__AVR_ATtiny3216__) || defined(__AVR_ATtiny3217__))
-  typedef uint8_t  ptc_id_t;
-  typedef uint16_t ptc_ch_bm_t;
-#elif  (defined(__AVR_AVR32DA28__)  || defined(__AVR_AVR32DA32__)  || defined(__AVR_AVR32DA48__)  || defined(__AVR_AVR32DA64__) || \
-        defined(__AVR_AVR64DA28__)  || defined(__AVR_AVR64DA32__)  || defined(__AVR_AVR64DA48__)  || defined(__AVR_AVR64DA64__) || \
-        defined(__AVR_AVR128DA28__) || defined(__AVR_AVR128DA32__) || defined(__AVR_AVR128DA48__) || defined(__AVR_AVR128DA64__))
-  typedef uint16_t  ptc_id_t;
-  typedef uint64_t  ptc_ch_bm_t;
-#else
-  #error "PTC not supported by this chip"
-#endif
-/*
-#if PROGMEM_SIZE >= 0x2000  // at least 8 KB Flash
-  #if INTERNAL_SRAM_SIZE < 4096   // AtTinies
-    typedef uint8_t  ptc_id_t;
-    #if defined (PORTC)             // 20, 26 pin devices
-      typedef uint16_t ptc_ch_bm_t;
-    #else
-      typedef uint8_t ptc_ch_bm_t;
-    #endif
-  #else                           // DAs
-    typedef uint16_t  ptc_id_t;
-    typedef uint64_t  ptc_ch_bm_t;
-  #endif
-#else
-  #error "PTC not supported by this chip"
-#endif
-*/
+
 
 typedef struct ptc_node_state_type {
   uint8_t error:1;
@@ -131,6 +137,9 @@ typedef enum ptc_ret_enum {
   PTC_LIB_WAS_WAKEN,
   PTC_LIB_ASLEEP,
   PTC_LIB_CALIB_DONE,
+  PTC_LIB_CALIB_TOO_LOW,
+  PTC_LIB_CALIB_TOO_HIGH,
+  PTC_LIB_CALIB_TOO_LONG,
   // Error Return types
   PTC_LIB_ERROR           = 0x10,
   PTC_LIB_BAD_POINTER,
