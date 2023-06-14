@@ -40,15 +40,15 @@ cap_sensor_t *lowPowerNode = NULL;
 
 volatile cap_sensor_t *currConvNode = NULL;
 
-uint8_t currConvType = 0;   // does not "remember" if type was low-power
-uint8_t nextConvType = 0;
+ptc_node_type_t currConvType = 0;   // does not "remember" if type was low-power
+ptc_node_type_t nextConvType = 0;
 
 uint16_t acqPeriod = 20;    // Period in ms until a new acquision is started
 uint16_t lastAcqTime = 0;   // millis value of last Acqusition (16-bit)
 
-uint8_t freq_select = 0;  /* FREQ_SEL_0 to FREQ_SEL_15, FREQ_SEL_SPREAD -> CTRLD */
+ptc_freq_t freq_select = 0;  /* FREQ_SEL_0 to FREQ_SEL_15, FREQ_SEL_SPREAD -> CTRLD */
 
-volatile uint8_t ptc_lib_state = PTC_LIB_IDLE;
+volatile ptc_lib_t ptc_lib_state = PTC_LIB_IDLE;
 
 
 /*
@@ -323,7 +323,7 @@ void ptc_add_node_common(cap_sensor_t* node, ptc_ch_bm_t yCh, ptc_ch_bm_t xCh) {
 uint8_t ptc_enable_node(cap_sensor_t* node) {
   PTC_CHECK_FOR_BAD_POINTER(node);
   
-  node->state.enabled = 1;
+  node->state.disabled = 0;
   return PTC_LIB_SUCCESS;
 }
 
@@ -331,7 +331,7 @@ uint8_t ptc_enable_node(cap_sensor_t* node) {
 uint8_t ptc_disable_node(cap_sensor_t* node) {
   PTC_CHECK_FOR_BAD_POINTER(node);
 
-  node->state.enabled = 0;
+  node->state.disabled = 1;
   return PTC_LIB_SUCCESS;
 }
 
@@ -354,7 +354,7 @@ uint8_t ptc_lp_force_drift(void) {
 
 // select node type to convert next (Selfcap, Shield, Mutual)
 // when not specified, the type of the "firstNode" is always used
-void ptc_set_next_conversion_type(uint8_t type) {
+void ptc_set_next_conversion_type(ptc_node_type_t type) {
   nextConvType = type;
 }
 
@@ -736,6 +736,7 @@ uint8_t ptc_process_calibrate (cap_sensor_t* node) {
     cc_fine  |= cc_accurate;
     node->hw_compCaps = (uint16_t)((cc_rough << 8) | cc_fine);
     return PTC_LIB_SUCCESS;
+
   #elif defined (__PTC_DA__)
     int8_t dir;
     if (rawData > 0x0200) {
@@ -861,8 +862,6 @@ void ptc_init_conversion(uint8_t nodeType) {
     ptc_lib_state = PTC_LIB_CONV_PROG;
     ptc_start_conversion(firstNode);
   }
-#else
-  #warning "Neither __PTC_Tiny__ nor __PTC_DA__ defined"
 #endif
 }
 
@@ -873,7 +872,7 @@ void ptc_start_conversion (cap_sensor_t* node) {
       ptc_lib_state = PTC_LIB_CONV_COMPL;
       return;
     }
-    if (node->state.enabled && (node->type == currConvType)) {
+    if ((0 == node->state.disabled) && (node->type == currConvType)) {
       break;
     } else {
       node = node->nextNode;
@@ -894,7 +893,7 @@ void ptc_set_registers(cap_sensor_t* node) {
     return;
   
   uint8_t analogGain = 0x3F;
-  if (node->state.enabled != 0 && node->stateMachine != PTC_SM_NOINIT_CAL) {
+  if ((node->state.disabled == 0) && (node->stateMachine != PTC_SM_NOINIT_CAL)) {
     uint8_t lut_index = node->hw_a_d_gain / 16;  // A little workaround as >> 4 is kinda broken sometimes.
     // Do not optimize the else if. This allows gcc to optimize away the look-up-tables
     if (NODE_SELFCAP_bm & node->type) { 

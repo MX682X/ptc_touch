@@ -19,11 +19,6 @@ void setup() {
   ptc_add_selfcap_node(&nodes[1], PIN_TO_PTC(PIN_PA5), 0);
   ptc_add_selfcap_node(&nodes[2], PIN_TO_PTC(PIN_PA6), 0);
 
-  // only enabled nodes will be have a conversion
-  ptc_enable_node(&nodes[0]);
-  ptc_enable_node(&nodes[1]);
-  ptc_enable_node(&nodes[2]);
-
   // Make sure Serial works
   MySerial.println("Hello World!");
 }
@@ -33,7 +28,7 @@ void loop() {
 }
 
 // callback that is called by ptc_process at different points to ease user interaction
-void ptc_event_callback(const uint8_t eventType, cap_sensor_t* node) {
+void ptc_event_callback(const ptc_cb_event_t eventType, cap_sensor_t* node) {
   if (PTC_CB_EVENT_TOUCH_DETECT == eventType) {
     MySerial.print("node touched:");
     MySerial.println(ptc_get_node_id(node));

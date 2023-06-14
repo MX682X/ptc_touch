@@ -383,7 +383,7 @@ const uint8_t ptc_ch_to_pin [] = {
   PORTB_ISC(5),    /* X12 / Y12 */
   PORTB_ISC(6),
 #endif
-#else // DA (ToDo)
+#else
   PORTA_ISC(0),
   PORTA_ISC(1),
   PORTA_ISC(2),

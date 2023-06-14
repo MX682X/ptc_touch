@@ -52,33 +52,6 @@ extern "C" {
 
 #define NODE_GAIN(_a_, _d_)      (uint8_t)(((_a_) << 4) | ((_d_) & 0x0F))
 #define NODE_RSEL_PRSC(_r_, _p_) (uint8_t)(((_r_) << 4) | ((_p_) & 0x0F))
-
-#define NODE_TYPE_NOCONV_bm     (0x00)
-#define NODE_MUTUAL_bm          (0x01)
-#define NODE_RESERVED_bm        (0x02)
-#define NODE_SELFCAP_bm         (0x04)
-#define NODE_SHIELD_bm          (0x08)
-#define NODE_SELFCAP_SHIELD_bm  (NODE_SHIELD_bm | NODE_SELFCAP_bm)  // 0x0C
-#define NODE_TYPE_bm            (NODE_MUTUAL_bm | NODE_SELFCAP_bm | NODE_SHIELD_bm)
-
-#define PTC_CB_EVENT_TOUCH            (0x10)
-#define PTC_CB_EVENT_WAKE_TOUCH       (PTC_CB_EVENT_TOUCH | 0x01)   // 0x11
-#define PTC_CB_EVENT_WAKE_NO_TOUCH    (PTC_CB_EVENT_TOUCH | 0x02)   // 0x12
-#define PTC_CB_EVENT_TOUCH_DETECT     (PTC_CB_EVENT_TOUCH | 0x03)   // 0x13
-#define PTC_CB_EVENT_TOUCH_RELEASE    (PTC_CB_EVENT_TOUCH | 0x04)   // 0x14
-#define PTC_CB_EVENT_CONV_CMPL        (0x20)
-#define PTC_CB_EVENT_CONV_MUTUAL_CMPL (PTC_CB_EVENT_CONV_CMPL | NODE_MUTUAL_bm)         // 0x21
-#define PTC_CB_EVENT_CONV_SELF_CMPL   (PTC_CB_EVENT_CONV_CMPL | NODE_SELFCAP_bm)        // 0x24
-#define PTC_CB_EVENT_CONV_SHIELD_CMPL (PTC_CB_EVENT_CONV_CMPL | NODE_SELFCAP_SHIELD_bm) // 0x28
-#define PTC_CB_EVENT_CONV_CALIB       (0x40)
-#define PTC_CB_EVENT_ERR_CALIB        (PTC_CB_EVENT_CONV_CALIB | 0x01)  // 0x31
-#define PTC_CB_EVENT_ERR_CALIB_LOW    (PTC_CB_EVENT_ERR_CALIB | 0x02)   // 0x32
-#define PTC_CB_EVENT_ERR_CALIB_HIGH   (PTC_CB_EVENT_ERR_CALIB | 0x04)   // 0x34
-#define PTC_CB_EVENT_ERR_CALIB_TO     (PTC_CB_EVENT_ERR_CALIB | 0x08)   // 0x38
-
-
-
-
 #define NUM_TO_BM(__n__)    (0x01 << __n__)
 
 
@@ -109,7 +82,7 @@ extern "C" {
 
 //extern void ptc_conversion_complete(uint8_t type);
 //extern void ptc_error_callback(uint8_t source, cap_sensor_t* node);
-extern void ptc_event_callback(const uint8_t eventType, cap_sensor_t* node);
+extern void ptc_event_callback(const ptc_cb_event_t eventType, cap_sensor_t* node);
 
 
 // Enables the node. Can be called while an acquisition is in progress.
@@ -119,7 +92,7 @@ uint8_t ptc_enable_node(cap_sensor_t* node);
 uint8_t ptc_disable_node(cap_sensor_t* node);
 
 // Can be used outside an acqusition process to select ADC/SELFCAP/MUTUAL/SHIELD
-void ptc_set_next_conversion_type(uint8_t type);
+void ptc_set_next_conversion_type(ptc_node_type_t type);
 
 // Main task handle for PTC. Handles State-Machine, drift, and calibration
 void ptc_process(uint16_t currTime);

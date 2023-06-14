@@ -74,7 +74,7 @@ typedef enum PTC_RSEL_enum {
   RSEL_VAL_200
 } PTC_RSEL_t;
 
-typedef enum PTC_SAMPLDLY_enum {
+typedef enum ptc_freq_enum {
   FREQ_SEL_0,
   FREQ_SEL_1,
   FREQ_SEL_2,
@@ -92,18 +92,18 @@ typedef enum PTC_SAMPLDLY_enum {
   FREQ_SEL_14,
   FREQ_SEL_15,
   FREQ_SEL_SPREAD
-} PTC_SAMPLDLY_t;
+} ptc_freq_t;
 
 
 
 typedef enum PTC_PRESC_enum
 {
-  PTC_PRESC_DIV2_gc = (0x00<<0),  /* CLK_PER divided by 2 */
-  PTC_PRESC_DIV4_gc = (0x01<<0),  /* CLK_PER divided by 4 */
-  PTC_PRESC_DIV8_gc = (0x02<<0),  /* CLK_PER divided by 8 */
-  PTC_PRESC_DIV16_gc = (0x03<<0),  /* CLK_PER divided by 16 */
-  PTC_PRESC_DIV32_gc = (0x04<<0),  /* CLK_PER divided by 32 */
-  PTC_PRESC_DIV64_gc = (0x05<<0),  /* CLK_PER divided by 64 */
+  PTC_PRESC_DIV2_gc   = (0x00<<0),  /* CLK_PER divided by 2 */
+  PTC_PRESC_DIV4_gc   = (0x01<<0),  /* CLK_PER divided by 4 */
+  PTC_PRESC_DIV8_gc   = (0x02<<0),  /* CLK_PER divided by 8 */
+  PTC_PRESC_DIV16_gc  = (0x03<<0),  /* CLK_PER divided by 16 */
+  PTC_PRESC_DIV32_gc  = (0x04<<0),  /* CLK_PER divided by 32 */
+  PTC_PRESC_DIV64_gc  = (0x05<<0),  /* CLK_PER divided by 64 */
   PTC_PRESC_DIV128_gc = (0x06<<0),  /* CLK_PER divided by 128 */
   PTC_PRESC_DIV256_gc = (0x07<<0)  /* CLK_PER divided by 256 */
 } PTC_PRESC_t;
@@ -115,7 +115,7 @@ typedef struct ptc_node_state_type {
   uint8_t win_comp:1;
   uint8_t low_power:1;
   uint8_t data_ready:1;
-  uint8_t enabled:1;
+  uint8_t disabled:1;
 } ptc_node_state_t;
 
 
@@ -151,6 +151,35 @@ typedef enum ptc_ret_enum {
   PTC_NODE_NOT_TOUCHED
 } ptc_ret_t;
 
+
+typedef enum ptc_node_type_enum {
+  NODE_TYPE_NOCONV_bm     = (0x00),
+  NODE_MUTUAL_bm          = (0x01),
+  NODE_RESERVED_bm        = (0x02),
+  NODE_SELFCAP_bm         = (0x04),
+  NODE_SHIELD_bm          = (0x08),
+  NODE_SELFCAP_SHIELD_bm  = (NODE_SHIELD_bm | NODE_SELFCAP_bm),  // 0x0C
+  NODE_TYPE_bm            = (NODE_MUTUAL_bm | NODE_SELFCAP_bm | NODE_SHIELD_bm),
+} ptc_node_type_t;
+
+
+typedef enum ptc_cb_event_enum {
+  PTC_CB_EVENT_TOUCH            = 0x10,
+  PTC_CB_EVENT_WAKE_TOUCH       = (PTC_CB_EVENT_TOUCH | 0x01),   // 0x11
+  PTC_CB_EVENT_WAKE_NO_TOUCH    = (PTC_CB_EVENT_TOUCH | 0x02),   // 0x12
+  PTC_CB_EVENT_TOUCH_DETECT     = (PTC_CB_EVENT_TOUCH | 0x03),   // 0x13
+  PTC_CB_EVENT_TOUCH_RELEASE    = (PTC_CB_EVENT_TOUCH | 0x04),   // 0x14
+  PTC_CB_EVENT_CONV_CMPL        = 0x20,
+  PTC_CB_EVENT_CONV_MUTUAL_CMPL = (PTC_CB_EVENT_CONV_CMPL | NODE_MUTUAL_bm),          // 0x21
+  PTC_CB_EVENT_CONV_SELF_CMPL   = (PTC_CB_EVENT_CONV_CMPL | NODE_SELFCAP_bm),         // 0x24
+  PTC_CB_EVENT_CONV_SHIELD_CMPL = (PTC_CB_EVENT_CONV_CMPL | NODE_SELFCAP_SHIELD_bm),  // 0x28
+  PTC_CB_EVENT_CONV_CALIB       = 0x40,
+  PTC_CB_EVENT_ERR_CALIB        = (PTC_CB_EVENT_CONV_CALIB | 0x01), // 0x31
+  PTC_CB_EVENT_ERR_CALIB_LOW    = (PTC_CB_EVENT_ERR_CALIB | 0x02),  // 0x32
+  PTC_CB_EVENT_ERR_CALIB_HIGH   = (PTC_CB_EVENT_ERR_CALIB | 0x04),  // 0x34
+  PTC_CB_EVENT_ERR_CALIB_TO     = (PTC_CB_EVENT_ERR_CALIB | 0x08),  // 0x38
+} ptc_cb_event_t;
+
 typedef enum ptc_lib_enum {
   PTC_LIB_IDLE        = 0x00,
   PTC_LIB_CONV_PROG   = 0x01,
@@ -162,8 +191,8 @@ typedef enum ptc_lib_enum {
 } ptc_lib_t;
 
 typedef struct cap_sensor_type {
-  void*     nextNode;       //
-  uint8_t   type;           // 0x01 - selfcap, 0x02 - mutualcap
+  struct cap_sensor_type* nextNode;
+  ptc_node_type_t   type;
   ptc_id_t  id;             // number for easier identification in the callback
  
   ptc_ch_bm_t hw_xCh_bm;
