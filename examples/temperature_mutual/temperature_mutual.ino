@@ -19,10 +19,6 @@ void setup() {
   ptc_add_mutualcap_node(&nodes[1], PIN_TO_PTC(PIN_PA5), PIN_TO_PTC(PIN_PA7));
   ptc_add_mutualcap_node(&nodes[2], PIN_TO_PTC(PIN_PA6), PIN_TO_PTC(PIN_PA7));
 
-  // only enabled nodes will be have a conversion
-  ptc_enable_node(&nodes[0]);
-  ptc_enable_node(&nodes[1]);
-  ptc_enable_node(&nodes[2]);
 
   // Make sure Serial works
   MySerial.println("Hello World!");

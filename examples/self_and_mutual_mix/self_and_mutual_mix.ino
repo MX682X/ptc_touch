@@ -14,11 +14,6 @@ void setup() {
   ptc_add_mutualcap_node(&nodes[2], PIN_TO_PTC(PIN_PA6), PIN_TO_PTC(PIN_PB1));
   ptc_add_mutualcap_node(&nodes[3], PIN_TO_PTC(PIN_PA7), PIN_TO_PTC(PIN_PB1));
 
-  ptc_enable_node(&nodes[0]);
-  ptc_enable_node(&nodes[1]);
-  ptc_enable_node(&nodes[2]);
-  ptc_enable_node(&nodes[3]);
-
   MySerial.begin(115200);
   MySerial.println("Hello World!");
 }
