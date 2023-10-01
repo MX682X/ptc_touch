@@ -113,8 +113,8 @@ Different pins have a different parasitic capacitance. I suspect this is depends
 ### Tuning of nodes
 
 In order to ease the use of the PTC module, the ptc_add_* functions will initialize the cap_sensor_t struct with some default values, like the CC value mentioned above. That values can be easily changed and will be applied the next time a conversion of said node starts. Here is a list:
- - Analog Gain. Increases the sensitivity of the electrode by adjusting a capacitor on a integrator (I think) (1x Gain)
- - Digital Gain. Defines the amount of ADC Oversampling. Will not affect the count value, as it is internally right-shifted. (16x Oversampled)
+ - Analog Gain. Increases the sensitivity of the electrode by adjusting a capacitor on a integrator (I think) (1x to 32x Gain (2^n), 1x Default)
+ - Digital Gain. Defines the amount of ADC Oversampling. Will not affect the count value, as it is internally right-shifted. (1x to 64x (2^n), 16x Default)
  - Charge Share Delay. Affects the Sample length of the ADC. (0 extra clocks)
  - Prescaler. It is possible to slow down the ADC clock by adjusting the Prescaler. (Depends on CPU clock, targeted: 1MHz +/- 25%)
  - Serial Resistor. Allows to change the serial resistor between the Cc and the node. Fixed at 100k for Self-Cap. Creates RC-low-pass filter.

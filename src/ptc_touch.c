@@ -77,18 +77,9 @@ ptc_lib_sm_set_t* ptc_get_sm_settings() {
 // depends on the button type.
 // This values were extracted from the PROGMEM with a debugger
 
-const uint8_t ptc_a_gain_sc_lut[] = {
-  0x3F, 0x1C, 0x0B, 0x05,
-  0x03, 0x01, 0x7D, 0x39,
-  0x11, 0x38, 0x99, 0x39,
-  0x08, 0x38, 0x14, 0x01
-};
-
-const uint8_t ptc_a_gain_mc_lut[] = {
-  0x3F, 0x1C, 0x0B, 0x05,
-  0x03, 0x01, 0x66, 0x38,
-  0x11, 0x38, 0x82, 0x38,
-  0x08, 0x38, 0x14, 0x01
+const uint8_t ptc_a_gain_lut[] = {
+  0x3F, 0x1C, 0x0B, 
+  0x05, 0x03, 0x01,
 };
 
 
@@ -168,7 +159,17 @@ uint8_t ptc_node_set_prescaler(cap_sensor_t* node, uint8_t presc) {
 
 uint8_t ptc_node_set_gain(cap_sensor_t* node, uint8_t aGain, uint8_t dGain) {
   PTC_CHECK_FOR_BAD_POINTER(node);
-
+  if (aGain > 0x05) {
+    if (__builtin_constant_p(aGain))
+      badArg("Analog Gain too high. Max Analog Gain Value is 0x05 (equals 32x)");
+    return PTC_LIB_BAD_ARGUMENT;
+  } 
+  
+  if (dGain > 0x06) {
+    if (__builtin_constant_p(dGain)) 
+      badArg("Digital Gain too high. Max Digital Gain Value is 0x06 (equals 64x)");
+    return PTC_LIB_BAD_ARGUMENT;
+  }
   node->hw_a_d_gain = NODE_GAIN(aGain, dGain);
   return PTC_LIB_SUCCESS;
 }
@@ -895,12 +896,7 @@ void ptc_set_registers(cap_sensor_t* node) {
   uint8_t analogGain = 0x3F;
   if ((node->state.disabled == 0) && (node->stateMachine != PTC_SM_NOINIT_CAL)) {
     uint8_t lut_index = node->hw_a_d_gain / 16;  // A little workaround as >> 4 is kinda broken sometimes.
-    // Do not optimize the else if. This allows gcc to optimize away the look-up-tables
-    if (NODE_SELFCAP_bm & node->type) { 
-      analogGain = ptc_a_gain_sc_lut[lut_index];
-    } else if (NODE_MUTUAL_bm & node->type) {
-      analogGain = ptc_a_gain_mc_lut[lut_index];
-    }
+    analogGain = ptc_a_gain_lut[lut_index];
   }
 
   uint8_t chargeDelay = node->hw_csd;
