@@ -35,9 +35,8 @@
   #endif
 #endif
 
-#include "ptc_touch_io.h"
 #include "ptc_touch_types.h"
-
+#include "ptc_touch_io.h"
 
 
 #ifndef NULL
@@ -76,6 +75,10 @@ extern "C" {
     }                                     \
     return PTC_LIB_BAD_POINTER;           \
   }
+
+
+void badArg(const char*)  __attribute__((weak, error("")));
+void badCall(const char*) __attribute__((weak, error("")));
 
 
 

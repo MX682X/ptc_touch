@@ -119,7 +119,7 @@ typedef struct PTC_struct {
 
 
 #define PIN_TO_PTC(__pin__) (((__pin__) < NUM_TOTAL_PINS ) ? digital_pin_to_ptc_bm[__pin__] : 0x00)
-const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
+static const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
 #if (__PTC_Pincount__ == 6)
   0x01 << 0,  //PA4
   0x01 << 1,  //PA5
@@ -365,7 +365,7 @@ const ptc_ch_bm_t digital_pin_to_ptc_bm [] = {
 
 
 // lookup-table to quickly disable input and pull-up
-const uint8_t ptc_ch_to_pin [] = {
+static const uint8_t ptc_ch_to_pin [] = {
 #if (__PTC_Pincount__ <= 14)
   PORTA_ISC(4), 
   PORTA_ISC(5),
