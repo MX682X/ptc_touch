@@ -222,13 +222,13 @@ typedef enum ptc_cb_event_enum {
 
 
 typedef enum ptc_lib_enum {
-  PTC_LIB_IDLE        = 0x00,
-  PTC_LIB_CONV_PROG   = 0x01,
-  PTC_LIB_CONV_COMPL  = 0x02,
-  PTC_LIB_EVENT       = 0x04,
-  PTC_LIB_CONV_LP     = 0x08,
-  PTC_LIB_CONV_WCMP   = 0x10,
-  PTC_LIB_SUSPENDED   = 0x80
+  PTC_LIB_IDLE          = 0x00,
+  PTC_LIB_CONV_PROG     = 0x01,
+  PTC_LIB_CONV_COMPL    = 0x02,
+  PTC_LIB_EVENT         = 0x04,
+  PTC_LIB_CONV_WCMP_HT  = 0x08,
+  PTC_LIB_CONV_WCMP_LT  = 0x10,
+  PTC_LIB_SUSPENDED     = 0x80
 } ptc_lib_t;
 
 typedef struct cap_sensor_type {

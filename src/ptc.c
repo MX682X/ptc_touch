@@ -450,10 +450,8 @@ uint8_t ptc_lp_disable(void) {
   PTC.EVCTRL = 0;
 
   lowPowerNode->state.low_power = 0;
-  lowPowerNode->state.win_comp = 0;
   lowPowerNode->stateMachine = PTC_SM_TOUCH_IN_FLT; // Speed up Touch detect process after wakeup
-  
-  lowPowerNode = NULL;
+
   return PTC_LIB_SUCCESS;
 }
 
@@ -508,20 +506,15 @@ uint16_t ptc_get_node_cc_femto(cap_sensor_t *node) {
 // pass the time, e.g. return value of millis or TCB value to the function instead of having a
 // millis in here. improves portability
 void ptc_process(uint16_t currTime) {
-  if ((PTC_LIB_CONV_WCMP | PTC_LIB_CONV_LP) & ptc_lib_state) {
-    if (PTC_LIB_CONV_WCMP == ptc_lib_state) {
-      ptc_event_cb_wake(PTC_CB_EVENT_WAKE_TOUCH, lowPowerNode); // a wakeup is not considered touch detect
-    } else {                                                    // as it might have been woken up due to error
+  if ((PTC_LIB_CONV_WCMP_HT | PTC_LIB_CONV_WCMP_LT) & ptc_lib_state) {
+    if (PTC_LIB_CONV_WCMP_HT == ptc_lib_state) {
+      ptc_event_cb_wake(PTC_CB_EVENT_WAKE_TOUCH, lowPowerNode);
+    } else {
       ptc_event_cb_wake(PTC_CB_EVENT_WAKE_NO_TOUCH, lowPowerNode);
     }
-    if (NULL == lowPowerNode) { // Due to callbacks, low Power node may have been set to NULL by a disable
-      currConvType = NODE_TYPE_NOCONV_bm;
-      ptc_lib_state = PTC_LIB_IDLE;
-    } else {
-      ptc_process_measurement(lowPowerNode);
-      PTC.INTCTRL = ADC_WCMP_bm;
-      ptc_lib_state = PTC_LIB_EVENT;
-    }
+    ptc_lib_state = PTC_LIB_EVENT;  
+    ptc_process_measurement(lowPowerNode);
+
   } else if (PTC_LIB_CONV_COMPL == ptc_lib_state) {
     ptc_lib_state = PTC_LIB_IDLE;
     for (cap_sensor_t *node = firstNode; node != NULL; node = node->nextNode) {
@@ -530,6 +523,15 @@ void ptc_process(uint16_t currTime) {
     ptc_event_cb_conversion((PTC_CB_EVENT_CONV_CMPL | currConvType), (cap_sensor_t *)currConvNode);
     currConvType = NODE_TYPE_NOCONV_bm;
   }
+
+  if (lowPowerNode != NULL) {
+    if (lowPowerNode->state.low_power == 0) {
+      lowPowerNode = NULL;
+      currConvType = NODE_TYPE_NOCONV_bm;
+      ptc_lib_state = PTC_LIB_IDLE;
+    }
+  }
+    
 
   if ((currTime - lastAcqTime) >= acqPeriod) {
     lastAcqTime += acqPeriod;
@@ -595,7 +597,7 @@ void ptc_process_node_sm(cap_sensor_t *node) {
       // calibration didn't finish (yet), but didn't threw an error
     }
 
-  } else if (nodeSM & PTC_SM_RECAL_FLT) {   /* if the delta was really low, we might have to recalibrate the caps */
+  } else if (nodeSM == PTC_SM_RECAL_FLT) {   /* if the delta was really low, we might have to recalibrate the caps */
     if (nodeDelta > -150) {
       nodeSM = PTC_SM_NO_TOUCH;
     } else if (lastChange > 3) {
@@ -603,7 +605,7 @@ void ptc_process_node_sm(cap_sensor_t *node) {
     }
 
 
-  } else if (nodeSM & PTC_SM_NT_LOW_FLT) {   /* no touch, delta below -1, threshold drift */
+  } else if (nodeSM == PTC_SM_NT_LOW_FLT) {   /* no touch, delta below -1, threshold drift */
     if (nodeDelta > 0) {
       nodeSM = PTC_SM_NO_TOUCH;
     } else if (nodeDelta < -150) {
@@ -614,7 +616,7 @@ void ptc_process_node_sm(cap_sensor_t *node) {
     }
 
 
-  } else if (nodeSM & PTC_SM_NO_TOUCH) {  /* default State, no touch */
+  } else if (nodeSM == PTC_SM_NO_TOUCH) {  /* default State, no touch */
     if (nodeDelta < -150) {               /* if the touch value is way too small, something changed with the lines, recalibrate */
       nodeSM = PTC_SM_RECAL_FLT;
     } else if (nodeDelta >= node->touch_in_th) {
@@ -630,7 +632,7 @@ void ptc_process_node_sm(cap_sensor_t *node) {
     }
 
 
-  } else if (nodeSM & PTC_SM_NT_HIGH_FLT) {
+  } else if (nodeSM == PTC_SM_NT_HIGH_FLT) {
     if (nodeDelta < 0) {
       nodeSM = PTC_SM_NO_TOUCH;
     } else if (nodeDelta >= node->touch_in_th) {
@@ -641,7 +643,7 @@ void ptc_process_node_sm(cap_sensor_t *node) {
     }
 
 
-  } else if (nodeSM & PTC_SM_TOUCH_IN_FLT) {
+  } else if (nodeSM == PTC_SM_TOUCH_IN_FLT) {
     if (lastChange >= ptc_sm_settings.touched_detect_nom) {
       nodeSM = PTC_SM_TOUCH_DETECT;
       ptc_event_cb_touch(PTC_CB_EVENT_TOUCH_DETECT, node);
@@ -650,7 +652,7 @@ void ptc_process_node_sm(cap_sensor_t *node) {
     }
 
 
-  } else if (nodeSM & PTC_SM_TOUCH_OUT_FLT) {
+  } else if (nodeSM == PTC_SM_TOUCH_OUT_FLT) {
     if (lastChange >= ptc_sm_settings.untouched_detect_nom) {
       nodeSM = PTC_SM_NO_TOUCH;
       ptc_event_cb_touch(PTC_CB_EVENT_TOUCH_RELEASE, node);
@@ -659,7 +661,7 @@ void ptc_process_node_sm(cap_sensor_t *node) {
     }
 
 
-  } else if (nodeSM & PTC_SM_TOUCH_DETECT) {
+  } else if (nodeSM == PTC_SM_TOUCH_DETECT) {
     if (lastChange > ptc_sm_settings.touched_max_nom) {
       nodeSM = PTC_SM_NOINIT_CAL;
     } else if (nodeDelta < node->touch_out_th) {
@@ -667,21 +669,15 @@ void ptc_process_node_sm(cap_sensor_t *node) {
     }
 
 
-  } else if (nodeSM & PTC_SM_LOW_POWER) {
-    if (0 == node->state.low_power) {
-      if (nodeDelta > node->touch_in_th) {
-        nodeSM = PTC_SM_TOUCH_DETECT;
-      } else {
-        nodeSM = PTC_SM_NO_TOUCH;
-      }
-      lowPowerNode = NULL;
-    }
+  } else if (nodeSM == PTC_SM_LOW_POWER) {
     if (nodeDelta < -1) {
       node->reference--;
       PTC.WINHT--;
+      PTC.WINLT--;
     } else if (nodeDelta > 1) {
       node->reference++;
       PTC.WINHT++;
+      PTC.WINLT++;
     }
   }
 
@@ -866,7 +862,7 @@ void ptc_init_conversion(uint8_t nodeType) {
   PTC_t *pPTC;
   _fastPtr_d(pPTC, &PTC);
 
-  if (ptc_lib_state & (PTC_LIB_CONV_PROG | PTC_LIB_CONV_LP | PTC_LIB_CONV_WCMP | PTC_LIB_SUSPENDED)) {
+  if (ptc_lib_state & (PTC_LIB_CONV_PROG | PTC_LIB_CONV_WCMP_HT | PTC_LIB_CONV_WCMP_LT | PTC_LIB_SUSPENDED)) {
     return;
   }
 
@@ -897,8 +893,7 @@ void ptc_init_conversion(uint8_t nodeType) {
 
   currConvType = nodeType;
   if (NULL != lowPowerNode) {
-    lowPowerNode->state.win_comp = 0;
-    pPTC->INTCTRL = ADC_WCMP_bm;  // Wakeup only above of window
+    pPTC->INTCTRL = ADC_WCMP_bm;  // Wakeup above of window
     pPTC->CTRLE = ADC_WINCM_ABOVE_gc;
     pPTC->WINHT = (lowPowerNode->reference + lowPowerNode->touch_in_th) << (lowPowerNode->hw_gain_ovs & 0x0F);
     ptc_lib_state = PTC_LIB_EVENT;
@@ -944,10 +939,10 @@ void ptc_init_conversion(uint8_t nodeType) {
 
   currConvType = nodeType;
   if (NULL != lowPowerNode) {
-    lowPowerNode->state.win_comp = 0;
-    pPTC->INTCTRL = ADC_WCMP_bm;  // Wakeup only above of window
+    pPTC->INTCTRL = ADC_WCMP_bm;  // Wakeup above of window
     pPTC->CTRLE = ADC_WINCM_ABOVE_gc;
     pPTC->WINHT = (lowPowerNode->reference + lowPowerNode->touch_in_th) << (lowPowerNode->hw_gain_ovs & 0x0F);
+    pPTC->WINLT = (lowPowerNode->reference + lowPowerNode->touch_out_th) << (lowPowerNode->hw_gain_ovs & 0x0F);
     ptc_lib_state = PTC_LIB_EVENT;
     ptc_start_conversion(lowPowerNode);
   } else {
@@ -978,6 +973,9 @@ void ptc_start_conversion(cap_sensor_t *node) {
   PTC_t *pPTC;
   _fastPtr_d(pPTC, &PTC);
   _fastPtr_d(node, node);
+  
+  node->state.win_comp = 0;
+  
   uint8_t analogGain = PTC_GAIN_MAX;              // Max GAIN when not yet calibrated
   if (node->stateMachine != PTC_SM_NOINIT_CAL) {
     analogGain = node->hw_gain_ovs / 16;  // Div is faster then >>4 as gcc expands the variable to word
@@ -1100,25 +1098,25 @@ void ptc_eoc(void) {
     return;
   }
 
-  pPTC->CTRLA = 0x00;
-  uint8_t flags = pPTC->INTFLAGS; // save the flags before they get cleared by RES read
+
+  //uint8_t flags = pPTC->INTFLAGS; // save the flags before they get cleared by RES read
   uint16_t rawVal =  pPTC->RES;   // clears ISR flags
   uint8_t oversampling = pCurrentNode->hw_gain_ovs  & 0x0F;
   pCurrentNode->sensorData = rawVal >> oversampling;
 
-  //currConvNode->sensorData = pPTC->RES_TRUE;
   pCurrentNode->state.data_ready = 1;
-
-  if (pCurrentNode->state.low_power) {
-    if (flags & ADC_WCMP_bm) {
+  if(pCurrentNode->state.low_power == 1) {
+    if (pPTC->CTRLE == ADC_WINCM_ABOVE_gc) {  // No need to restart conversions as it's event driven
+      ptc_lib_state = PTC_LIB_CONV_WCMP_HT;
       pCurrentNode->state.win_comp = 1;
-      ptc_lib_state = PTC_LIB_CONV_WCMP;
+      pPTC->CTRLE = ADC_WINCM_BELOW_gc;
     } else {
+      ptc_lib_state = PTC_LIB_CONV_WCMP_LT;
       pCurrentNode->state.win_comp = 0;
-      ptc_lib_state = PTC_LIB_CONV_LP;
+      pPTC->CTRLE = ADC_WINCM_ABOVE_gc;
     }
-
   } else {
+    pPTC->CTRLA = 0x00;
     ptc_start_conversion(pCurrentNode->nextNode);
   }
 }
