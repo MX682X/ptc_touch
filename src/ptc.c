@@ -451,7 +451,7 @@ uint8_t ptc_lp_disable(void) {
 
   lowPowerNode->state.low_power = 0;
   lowPowerNode->state.win_comp = 0;
-  lowPowerNode->stateMachine = PTC_SM_NO_TOUCH;
+  lowPowerNode->stateMachine = PTC_SM_TOUCH_IN_FLT; // Speed up Touch detect process after wakeup
   
   lowPowerNode = NULL;
   return PTC_LIB_SUCCESS;
